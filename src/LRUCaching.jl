@@ -1,7 +1,7 @@
 module LRUCaching
 
 import Base.show                                                                                                                                                                                          
-export Cache
+export Cache, @cache
 
 # Object
 struct Cache{T<:Function, I, O}
@@ -44,5 +44,9 @@ end
 	julia> foo(1) # <-- execute function
 	julia> foo(1) # <-- load cache
 	=#
+macro cache(ex::Symbol)
+	return esc(:(Cache($ex)))
+end  # macro
 
-end # module
+
+end  # module

@@ -1,10 +1,18 @@
 using LRUCaching
+using Random
 using Test
 
-function foo(x::Int)
+number = rand()
+
+function foo(x)
 	return x
 end
 
 foo_cache = LRUCaching.Cache(foo)
+@assert typeof(foo_cache) <: LRUCaching.Cache
+@assert foo(number) == foo_cache(number) 
 
-@assert foo(1) == foo_cache(1) 
+foo_macro_cache = @cache foo
+@assert typeof(foo_macro_cache) <: LRUCaching.Cache
+@assert foo(number) == foo_macro_cache(number) 
+

@@ -1,51 +1,66 @@
 module LRUCaching
 
 import Base.show                                                                                                                                                                                          
-export Cache, @cache
+export AbstractCache,
+	   MemoryCache,
+	   DiskCache,
+	   @memcache
 
-# Object
-struct Cache{T<:Function, I, O}
+# Objects
+# TODO (Corneliu): Add number of entries mechanism for DiskCache
+abstract type AbstractCache end
+
+struct MemoryCache{T<:Function, I, O} <: AbstractCache
 	func::T
 	cache::Dict{I, O}
 end
 
+struct DiskCache{T<:Function, S<:AbstractString} <: AbstractCache
+	func::T
+	cachefile::S
+end
+
 
 # Overload constructor
-Cache(f::T where T<:Function) = Cache(f, Dict())
+# TODO (Corneliu): Add DiskCache constructors
+MemoryCache(f::T where T<:Function,
+			T1::Type=Any,
+			T2::Type=Any) = MemoryCache(f, Dict{T1, T2}())
 
 
 # Call method
-(cached_func::T where T<:Cache)(args...) = begin
-	hv = hash(map(hash, args))
-	out = get(cached_func.cache, hv, nothing)
-    if out == nothing
-		@info "Hash miss, caching hash=$hv..."
-    	out = cached_func.func(args...)
-        cached_func.cache[hv] = out
+(mc::T where T<:MemoryCache)(args...; kwargs...) = begin
+	_hashes = (map(hash, args)..., map(hash, collect(kwargs))...)
+	if _hashes in keys(mc.cache)
+		out = mc.cache[_hashes]
+	else
+		@info "Hash miss, caching hash=$_hashes..."
+		out = mc.func(args...; kwargs...)
+        mc.cache[_hashes] = out
     end
     return out
 end
 
 
 # Show method
-show(io::IO, c::Cache) = begin
-	print(io, "Cached function $(c.func) with $(length(c.cache)) entries.")
-end 
+show(io::IO, c::MemoryCache) = begin
+	println(io, "Memory cache for \"$(c.func)\"")
+	print(io, "`- [**memory**]: $(length(c.cache)) entries.")
+end
 
-                                                                                
-#=
-	Make macro that would work like:
-	   @memcache - memory cache
-	   @diskcache("path/to/file") - disk cache
-	
-	Example:
-	julia> @cache foo  # foo is an existing function OR
-	julia> @cache function etc() ... end
-	julia> foo(1) # <-- execute function
-	julia> foo(1) # <-- load cache
-	=#
-macro cache(ex::Symbol)
-	return esc(:(Cache($ex)))
+show(io::IO, c::DiskCache) = begin
+	println(io, "Disk cache for \"$(c.func)\"")
+	print(io, "`- [$(c.file)]: ***(TODO)*** entries.")
+end
+
+
+# Macros
+
+# Simple macro of the form:
+# 	julia> foo(x) = x+1
+# 	julia> fooc = @cache foo # now `fooc` is the cached version of `foo`
+macro memcache(ex::Symbol)
+	return esc(:(MemoryCache($ex)))
 end  # macro
 
 

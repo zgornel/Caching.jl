@@ -10,13 +10,13 @@ import Base.show
 
 abstract type AbstractCache end
 
-export AbstractCache,
-	   MemoryCache,
-	   DiskCache,
-	   @memcache,
-	   @diskcache,
-	   sync!, sync,
-	   dump
+export AbstractCache, 
+    MemoryCache,
+    DiskCache,
+    @memcache,
+    @diskcache,
+    sync!, sync,
+    dump
 
 include("memcache.jl")
 include("diskcache.jl")

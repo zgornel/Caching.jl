@@ -1,6 +1,6 @@
 # Memory caching (dictionary based)
 
-struct MemoryCache{T<:Function, I<:AbstractArray, O} <: AbstractCache
+struct MemoryCache{T<:Function, I<:Unsigned, O} <: AbstractCache
 	name::String
 	func::T
 	cache::Dict{I, O}
@@ -10,20 +10,20 @@ end
 # Overload constructor
 MemoryCache(f::T where T<:Function;
 			name::String = string(f),
-			input_type::Type=Vector{UInt64},
+			input_type::Type=UInt64,
 			output_type::Type=Any) =
 	MemoryCache(name, f, Dict{input_type, output_type}())
 
 
 # Call method
 (mc::T where T<:MemoryCache)(args...; kwargs...) = begin
-	_hashes = [map(hash, args)..., map(hash, collect(kwargs))...]
-	if _hashes in keys(mc.cache)
-		out = mc.cache[_hashes]
+	_hash = hash([map(hash, args)..., map(hash, collect(kwargs))...])
+	if _hash in keys(mc.cache)
+		out = mc.cache[_hash]
 	else
-		@info "Hash miss, caching hash=$_hashes..."
+		@info "Hash miss, caching hash=$_hash..."
 		out = mc.func(args...; kwargs...)
-        mc.cache[_hashes] = out
+        mc.cache[_hash] = out
     end
     return out
 end
@@ -31,7 +31,8 @@ end
 
 # Show method
 show(io::IO, c::MemoryCache) = begin
-	println(io, "Memory cache for \"$(c.name)\" with $(length(c.cache)) entries.")
+	println(io, "Memory cache for \"$(c.name)\" " *
+			"with $(length(c.cache)) entries.")
 end
 
 

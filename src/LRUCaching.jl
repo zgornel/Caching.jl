@@ -8,7 +8,6 @@ export AbstractCache,
 	   DiskCache,
 	   @memcache
 
-
 include("memcache.jl")
 include("diskcache.jl")
 

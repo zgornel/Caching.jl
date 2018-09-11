@@ -7,7 +7,7 @@ DiskCache(mc::MemoryCache{T, I, O};
 MemoryCache(dc::DiskCache) = deepcopy(dc.memcache)
 
 
-# 
+#
 function cachesync!(dc::T) where T<:DiskCache
     # TODO(Corneliu) Implenmentation
     # if file does not exist

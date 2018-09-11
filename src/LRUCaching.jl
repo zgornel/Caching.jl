@@ -19,7 +19,7 @@ export AbstractCache,
     cachesync!,
     @cachesync,
     persist!,
-    @persist, 
+    @persist,
     empty!,
     @empty
 

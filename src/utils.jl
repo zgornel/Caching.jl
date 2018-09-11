@@ -14,8 +14,8 @@ function cachesync!(dc::T) where T<:DiskCache
     #   dump
     # else (if file/path does exists)
     #
-    #   create directory 
-    #   create file, 
+    #   create directory
+    #   create file,
 end
 
 
@@ -31,14 +31,14 @@ function persist!(mc::T; filename::String=
                   _generate_cache_filename(mc.name)) where T<:MemoryCache
     # Initialize structures
     _data = mc.cache
-	I, O = typeof(_data).parameters # works for `Dict`
+    I, O = typeof(_data).parameters # works for `Dict`
     offsets = Dict{I, Tuple{Int,Int}}()
     _dir = join(split(filename, "/")[1:end-1], "/")
     !isempty(_dir) && !isdir(_dir) && mkdir(_dir)
     # Write header
     fid = open(filename, "w")  # overwrite/create file
-	serialize(fid, I)
-	serialize(fid, O)
+    serialize(fid, I)
+    serialize(fid, O)
     # Write data pairs
     for (hash, datum) in _data
 		prevpos = position(fid)

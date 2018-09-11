@@ -1,6 +1,6 @@
 # Memory caching (dictionary based)
 
-struct MemoryCache{T<:Function, I<:Unsigned, O} <: AbstractCache
+mutable struct MemoryCache{T<:Function, I<:Unsigned, O} <: AbstractCache
 	name::String
 	func::T
 	cache::Dict{I, O}

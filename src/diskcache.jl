@@ -1,14 +1,16 @@
 # Disk caching
 
-struct DiskCache{T<:Function, I<:Unsigned, O} <: AbstractCache
-	filename::String
-	memcache::MemoryCache{T, I, O}
+mutable struct DiskCache{T<:Function, I<:Unsigned, O} <: AbstractCache
+	filename::String                    # file name
+    memcache::MemoryCache{T, I, O}      # MemoryCache structure (active)
+    offsets::Dict{I, Tuple{Int, Int}}   # existing hash - to - file positions
 end
 
 
 # Function that generates a name based on the name of the cached function
 _generate_cache_filename(fname::String) = begin
-		return "_" * fname * "_cache_" * string(hash(fname), base=16) * "_"
+		_filename = "_" * fname * "_cache_" * string(hash(fname), base=16) * "_.bin"
+        return abspath(_filename)
 end
 
 
@@ -17,9 +19,11 @@ DiskCache(f::T where T<:Function;
 		  name::String = string(f),
 		  filename::String = _generate_cache_filename(name),
 		  input_type::Type=UInt64,
-		  output_type::Type=Any) =
-	DiskCache(filename,
-			  MemoryCache(name, f, Dict{input_type, output_type}()))
+		  output_type::Type=Any) = begin
+    DiskCache(abspath(filename),
+              MemoryCache(name, f, Dict{input_type, output_type}()),
+              Dict{input_type, Tuple{Int, Int}}())
+end
 
 
 # Call method
@@ -38,14 +42,15 @@ end
 
 # Show method
 # TODO(Corneliu): Show discrepancies between disk and memory states
-show(io::IO, c::DiskCache) = begin
-	println(io, "Disk cache for \"$(c.memcache.name)\" " *
-			"with $(length(c.memcache.cache)) entries.")
+show(io::IO, dc::DiskCache) = begin
+	println(io, "Disk cache for \"$(dc.memcache.name)\" " *
+            "with $(length(dc.memcache.cache)) entries, $(length(dc.offsets)) on disk.")
 end
 
 
 # Macros
-
+# TODO(Corneliu): Support macro arguments i.e. julia> @diskcache @memcache foo
+#
 # Macro supporting construnctions of the form:
 # 	julia> foo(x) = x+1
 # 	julia> fooc = @diskcache foo # now `fooc` is the cached version of `foo`

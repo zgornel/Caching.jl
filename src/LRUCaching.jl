@@ -6,17 +6,22 @@
 module LRUCaching
 
 using Random
-import Base.show
+using Serialization
+import Base: show, empty!
 
 abstract type AbstractCache end
 
-export AbstractCache, 
+export AbstractCache,
     MemoryCache,
-    DiskCache,
     @memcache,
+    DiskCache,
     @diskcache,
-    sync!, sync,
-    dump
+    cachesync!,
+    @cachesync,
+    persist!,
+    @persist, 
+    empty!,
+    @empty
 
 include("memcache.jl")
 include("diskcache.jl")

@@ -7,6 +7,8 @@ _a_float = rand()
 _a_float_2 = rand()
 _an_int = rand(Int)
 
+N = 3
+
 # Functions
 function foo(x)
 	return x
@@ -98,4 +100,96 @@ end
 end
 
 
-# Test Utils
+# Test functionality contained in the utils
+@testset "Conversion constructors" begin
+    _tmpfile = "_tmpfile.bin"
+    foo(x) = x+1
+    bar(x) = x-1
+
+    # Construct cache objects using macros
+    mc = @memcache bar
+    dc = @diskcache foo
+
+    # Construct cache objects using conversions
+    mc_t = MemoryCache(dc)
+    dc_t1 = DiskCache(mc)
+    dc_t2 = DiskCache(mc, filename=_tmpfile)
+
+    # Fill the cache
+    for i in 1:N
+        mc_t(rand())
+        dc_t1(rand())
+        dc_t2(rand())
+    end
+
+    # Tests for the MemoryCache object
+    @test typeof(mc_t) <: MemoryCache
+    @test length(mc_t.cache) == N
+    @test mc_t.func === foo
+
+    # Test for the DiskCache object
+    @test typeof(dc_t1) <: DiskCache
+    @test typeof(dc_t2) <: DiskCache
+    @test :offsets in fieldnames(typeof(dc_t1))
+    @test :offsets in fieldnames(typeof(dc_t2))
+    @test dc_t1.memcache.func === bar
+    @test dc_t2.memcache.func === bar
+    @test length(dc_t1.memcache.cache) == N
+    @test length(dc_t2.memcache.cache) == N
+    @test dc_t2.filename == _tmpfile
+    @test !(mc_t === dc.memcache)
+end
+
+
+# TODO(Corneliu): test synccache!, @synccache
+
+
+# empty!, @empty
+@testset "empty!, @empty" begin
+    mc = @memcache foo; mc(1)
+    @test length(mc.cache) == 1
+    @empty mc
+    @test isempty(mc.cache)
+
+    dc = @diskcache foo; dc(1)
+    @test length(dc.memcache.cache) == 1
+    @persist dc "somefile.bin"
+    @test length(dc.offsets) == 1
+    @test isfile("somefile.bin")
+    @empty dc true  # remove offsets and file
+    @test isempty(dc.memcache.cache)
+    @test !isfile("somefile.bin")
+    @test isempty(dc.offsets)
+end
+
+# persist!, @persist
+@testset "persist!, @persist" begin
+    mc = @memcache foo
+    dc = @diskcache foo "somefile.bin"
+    @test dc.filename == abspath("somefile.bin")
+    @test isempty(dc.offsets)
+    for i in 1:N dc(i); mc(i) end  # add N entries
+
+    _path, _offsets = @persist mc "memfile.bin"
+    @test isabspath(_path)
+    @test typeof(_offsets) <: Dict{<:Unsigned, <:Tuple{Int, Int}}
+    @test length(_offsets) == N
+    @test isfile("memfile.bin")
+    rm("memfile.bin")
+
+    @persist dc
+    @test length(dc.offsets) == N
+    @test isfile("somefile.bin")
+    @test dc.filename == abspath("somefile.bin")
+    buf = open(read, "somefile.bin")
+    rm("somefile.bin")
+
+    @persist dc "some_other_file.bin"
+    @test length(dc.offsets) == N
+    @test isfile("some_other_file.bin")
+    @test dc.filename == abspath("some_other_file.bin")
+    buf2 = open(read, "some_other_file.bin")
+    rm("some_other_file.bin")
+
+    @test buf == buf2  # sanity check
+end

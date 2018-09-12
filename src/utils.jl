@@ -7,20 +7,49 @@ DiskCache(mc::MemoryCache{T, I, O};
 MemoryCache(dc::DiskCache) = deepcopy(dc.memcache)
 
 
-#
-function syncache!(dc::DiskCache{T, I, O}, mode::String="both") where {T, I, O}
-    # TODO(Corneliu) Implenmentation
-    # if file does not exist
-    #   dump
-    # else (if file/path does exists)
-    #
-    #   create directory
-    #   create file,
+# `with` parameter behavior:
+#   "both" - memory and disk concents are combined, memory values update disk
+#   "disk" - memory cache contents are updated with disk ones
+#   "memory" - disk cache contents are updated with memory ones
+function syncache!(dc::DiskCache{T, I, O};
+                   with::String="both",
+                   mode::String="inclusive") where {T, I, O}
+    # Check keyword argument values, correct unknown values
+    _default_with = "both"
+    _default_mode = "inclusive"
+    !(with in ["disk", "memory", "both"]) && begin
+        @warn "Unrecognized value with=$with, defaulting to $_default_with."
+        with = _default_with
+    end
+    !(mode in ["inclusive", "exclusive"]) && begin
+        @warn "Unrecognized value mode=$with, defaulting to $_default_mode."
+        with = _default_mode
+    end
+
+    # Cache synchronization
+    if !isfile(dc.filename)
+        if with == "both" || with == "memory"
+            noff = length(dc.offsets)
+            noff != 0 && @warn "Missing cache file, $noff existing offsets will be deleted."
+            persist!(dc)
+        else
+            empty!(dc)
+        end
+    else
+        cache_ok = _check_disk_cache(dc.filename, dc.offsets, I, O)
+        # TODO(Corneliu) Add warnings here
+        !cache_ok && with != "disk" && persist!(dc)
+        !cache_ok && with == "disk" && empty!(dc, empty_disk=true)
+        # At this point, the `offsets` dictionary should reflect
+        # the structure of the file pointed at by the `filename` field
+        mode = ifelse(with == "both" || with == "memory", "w+", "r")
+    end
+    return dc
 end
 
 
-macro syncache!(symb::Symbol, mode::String="both")
-    return esc(:(syncache!($symb, mode=$mode)))
+macro syncache!(symb::Symbol, with::String="both", mode::String="inclusive")
+    return esc(:(syncache!($symb, with=$with, mode=$mode)))
 end
 
 

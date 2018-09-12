@@ -19,7 +19,7 @@ function bar(x; y=1)
 end
 
 # Test MemoryCache, @memcahe
-@testset "Memory caching" begin
+@testset "MemoryCache" begin
     # Test caching of simple functions
     foo_c1 = LRUCaching.MemoryCache(foo)
     @test typeof(foo_c1) <: LRUCaching.AbstractCache
@@ -57,7 +57,7 @@ end
 
 
 # Test DiskCache, @diskcache
-@testset "Disk caching" begin
+@testset "DiskCache" begin
     # Test caching of simple functions
     foo_c1 = LRUCaching.DiskCache(foo)
     @test typeof(foo_c1) <: LRUCaching.AbstractCache
@@ -142,7 +142,8 @@ end
 
 
 # TODO(Corneliu): test synccache!, @synccache
-
+@testset "syncache!, @syncache" begin
+end
 
 # empty!, @empty
 @testset "empty!, @empty" begin

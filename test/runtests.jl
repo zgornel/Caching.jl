@@ -146,34 +146,34 @@ end
     # Define functions
     foo(x) = x+1  # define function
     
-    N1 = 5
-    fc = @diskcache foo "somefile.bin"  # make a DiskCache object
-    [fc(i) for i in 1:N1]  # populate the memorycache
+    n1 = 5
+    fc = @diskcache foo "somefile.bin"  # make a diskcache object
+    [fc(i) for i in 1:n1]  # populate the memorycache
     @persist! fc  # write to disk the cache
     @empty! fc  # delete the memory cache
     @test length(fc.memcache.cache) == 0
     @syncache! fc "disk"  # load cache from disk
     @test isfile(fc.filename)
-    @test length(fc.memcache.cache) == N1
+    @test length(fc.memcache.cache) == n1
     @empty! fc  # 5 entries on disk, 0 in memory
 
-    N2 = 3
-    [fc(-i) for i in 1:N2]  # populate the memory cache
+    n2 = 3
+    [fc(-i) for i in 1:n2]  # populate the memory cache
     @syncache! fc "memory"  # write memory cache to disk
-    @test length(fc.memcache.cache) == N2
+    @test length(fc.memcache.cache) == n2
     @empty! fc
     @test length(fc.memcache.cache) == 0
     @syncache! fc "disk"    # load cache from disk
-    @test length(fc.memcache.cache) == N1 + N2
+    @test length(fc.memcache.cache) == n1 + n2
     @empty! fc true  # remove everything
 
-    [fc(i) for i in 1:N1]  # populate the memorycache
+    [fc(i) for i in 1:n1]  # populate the memorycache
     @syncache! fc "memory"  # write to disk
     @empty! fc
-    [fc(-i) for i in 1:N1]  # populate the memorycache
+    [fc(-i) for i in 1:n1]  # populate the memorycache
     @syncache! fc "both"     # sync both memory and disk
-    @test length(fc.offsets) == 2*N1
-    @test length(fc.memcache.cache) == 2*N1
+    @test length(fc.offsets) == 2*n1
+    @test length(fc.memcache.cache) == 2*n1
     @empty! fc true
     @test !isfile(fc.filename)
 end

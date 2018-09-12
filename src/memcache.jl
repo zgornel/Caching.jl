@@ -30,9 +30,11 @@ end
 
 
 # Show method
-show(io::IO, c::MemoryCache) = begin
-    println(io, "Memory cache for \"$(c.name)\" " *
-            "with $(length(c.cache)) entries.")
+show(io::IO, mc::MemoryCache) = begin
+    _msz = length(mc.cache)
+    _en = ifelse(_msz == 1, "entry", "entries")
+    println(io, "$(mc.name) " *
+            "(memory cache with $_msz $_en)")
 end
 
 

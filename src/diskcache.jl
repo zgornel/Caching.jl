@@ -32,8 +32,13 @@ end
 
 # Show method
 show(io::IO, dc::DiskCache) = begin
-	println(io, "Disk cache for \"$(dc.memcache.name)\" " *
-            "with $(length(dc.memcache.cache)) entries, $(length(dc.offsets)) on disk.")
+    _msz = length(dc.memcache.cache)
+    _dsz = length(dc.offsets)
+    _tsz = length(symdiff(keys(dc.memcache.cache), keys(dc.offsets))) +
+           length(intersect(keys(dc.memcache.cache), keys(dc.offsets)))
+    _en = ifelse(_msz == 1, "entry", "entries")
+    println(io, "$(dc.memcache.name) " *
+            "(disk cache with $_tsz $_en, $_dsz on disk)")
 end
 
 

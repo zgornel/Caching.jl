@@ -8,7 +8,7 @@ MemoryCache(dc::DiskCache) = deepcopy(dc.memcache)
 
 
 #
-function cachesync!(dc::T) where T<:DiskCache
+function syncache!(dc::DiskCache{T, I, O}, mode::String="both") where {T, I, O}
     # TODO(Corneliu) Implenmentation
     # if file does not exist
     #   dump
@@ -19,20 +19,20 @@ function cachesync!(dc::T) where T<:DiskCache
 end
 
 
-macro cachesync!(dc)
-    # TODO(Corneliu) Implenmentation
+macro syncache!(symb::Symbol, mode::String="both")
+    return esc(:(syncache!($symb, mode=$mode)))
 end
 
 
 # Function that dumps the MemoryCache cache to disk
 # and returns the filename and offsets dictionary
-#TODO(corneliu): Add compression support
-function persist!(mc::T; filename::String=
-                  _generate_cache_filename(mc.name)) where T<:MemoryCache
+# TODO(Corneliu): Add compression support
+# TODO(Corneliu): Support for appending to existing data
+function persist!(mc::MemoryCache{T, I, O}; filename::String=
+                  _generate_cache_filename(mc.name)) where {T, I, O}
     # Initialize structures
     _data = mc.cache
-    I, O = typeof(_data).parameters # works for `Dict`
-    offsets = Dict{I, Tuple{Int,Int}}()
+    offsets = Dict{I, Tuple{Int, Int}}()
     _dir = join(split(filename, "/")[1:end-1], "/")
     !isempty(_dir) && !isdir(_dir) && mkdir(_dir)
     # Write header
@@ -75,7 +75,7 @@ function empty!(mc::MemoryCache; empty_disk::Bool=false)
 end
 
 
-# Erases the memory cache
+# Erases the memory and possibly the disk cache
 function empty!(dc::DiskCache; empty_disk::Bool=false)
     empty!(dc.memcache)     # remove memory cache
     if empty_disk           # remove offset structure and the file

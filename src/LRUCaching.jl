@@ -13,14 +13,14 @@ abstract type AbstractCache end
 
 export AbstractCache,
     MemoryCache,
-    @memcache,
     DiskCache,
-    @diskcache,
-    cachesync!,
-    @cachesync,
+    syncache!,
     persist!,
-    @persist,
     empty!,
+    @diskcache,
+    @memcache,
+    @syncache,
+    @persist,
     @empty
 
 include("memcache.jl")

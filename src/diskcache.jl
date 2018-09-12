@@ -9,7 +9,7 @@ end
 
 # Function that generates a name based on the name of the cached function
 _generate_cache_filename(fname::String) = begin
-    _filename = "_" * fname * "_cache_" * string(hash(fname), base=16) * "_.bin"
+    _filename = "_" * string(hash(fname), base=16) * "_.bin"
     return abspath(_filename)
 end
 
@@ -26,22 +26,11 @@ DiskCache(f::T where T<:Function;
 end
 
 
-# Call method
-(dc::T where T<:DiskCache)(args...; kwargs...) = begin
-	_hash = hash([map(hash, args)..., map(hash, collect(kwargs))...])
-	if _hash in keys(dc.memcache.cache)
-        out = dc.memcache.cache[_hash]
-	else
-        @info "Hash miss, caching hash=$_hash..."
-        out = dc.memcache.func(args...; kwargs...)
-        dc.memcache.cache[_hash] = out
-    end
-    return out
-end
+# Call method (caches only to memory, caching to disk has to be explicit)
+(dc::T where T<:DiskCache)(args...; kwargs...) = dc.memcache(args...; kwargs...)
 
 
 # Show method
-# TODO(Corneliu): Show discrepancies between disk and memory states
 show(io::IO, dc::DiskCache) = begin
 	println(io, "Disk cache for \"$(dc.memcache.name)\" " *
             "with $(length(dc.memcache.cache)) entries, $(length(dc.offsets)) on disk.")

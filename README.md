@@ -19,7 +19,7 @@ The basic structure is the `MemoryCache` object that can be easily constructed e
 foo(x) = x+1  # define function
 # foo (generic function with 1 method)
 
-julia a> mc = @memcache foo
+julia> mc = @memcache foo
 # Memory cache for "foo" with 0 entries.
 
 julia> mc(1)  # equivalent to foo(1), stores output to cache
@@ -81,9 +81,7 @@ julia> dc.offsets  # file information
 # Dict{UInt64,Tuple{Int64,Int64}} with 1 entry:
 #   0x7af5cd6266432e85 => (19, 28)
 ```
-If no file name is provided to the `@persist!` macro or corresponding `persist!` function, a file name will be automatically generated.
-
-It is possivle to write the cache for `MemoryCache` objects as well:
+If no file name is provided to the `@persist!` macro or corresponding `persist!` function, a file name will be automatically generated. It is possivle to write the cache for `MemoryCache` objects as well:
 ```julia
 julia> mc
 # Memory cache for "foo" with 1 entries.
@@ -111,7 +109,7 @@ false
 ```
 
 `DiskCache` objects support also a basic form of synchronization between the memory and disk cache contents. This is done with the help of the `syncache!` function and `@syncache!` macro:
-```julia>
+```julia
 julia> dc = @diskcache foo "somefile.bin"  # make a DiskCache object
 # Disk cache for "foo" with 0 entries, 0 on disk.
 
@@ -137,7 +135,7 @@ julia> @syncache! dc "memory"  # write memory cache to disk
 julia> @empty! dc
 # Disk cache for "foo" with 0 entries, 8 on disk.
 
-julia> @syncache! dc "disk"    # load cache from disk
+julia> @syncache! dc "disk"  # load cache from disk
 # Disk cache for "foo" with 8 entries, 8 on disk.
 
 julia> dc.memcache.cache  # view the cache
@@ -163,7 +161,7 @@ julia> dc.offsetsa  # view the file offsets
 #   0xdc41d32ffcb11aac => (86, 99)                                                                                                                                                                        
 ```
 
-Synchronization can also to-and-from disk and memory in one go passing `"both"` in the `@syncache!` macro call:
+Synchronization of disk and memory cache contents can also be performed in one go by passing `"both"` in the `@syncache!` macro call:
 ```julia
 julia> fc = @diskcache foo
 # Disk cache for "foo" with 0 entries, 0 on disk.
@@ -201,13 +199,13 @@ More usage examples can be found in the `test/runtests.jl` file.
 ## Limitations and Caveats
 
 Some limitations of this package that will have to be taken into consideration are:
-    - no support for a maximum size of the cache or replacement policy; only a full deletion of the cache is supported
-    - no support for Julia v0.6 and lower
-    - the cache access is not type-stable unless types are explicitly provided i.e. `@memcache foo::MyType`
-    - the caching mechanism is unaware of any syste-wide limitations on either memory or disk (TODO)
-    - multithreading/parallelism is not explicitly supported (TODO)
-    - compression is not supported (TODO)
-    - the `@memcache` and `@diskcache` do not support entire function definitions i.e. `@memcache foo(x)=x` or `@memcache x->x+1` (TODO)
+- no support for a maximum size of the cache or replacement policy; only a full deletion of the cache is supported
+- no support for Julia v0.6 and lower
+- the cache access is not type-stable unless types are explicitly provided i.e. `@memcache foo::MyType`
+- the caching mechanism is unaware of any syste-wide limitations on either memory or disk (TODO)
+- multithreading/parallelism is not explicitly supported (TODO)
+- compression is not supported (TODO)
+- the `@memcache` and `@diskcache` do not support entire function definitions i.e. `@memcache foo(x)=x` or `@memcache x->x+1` (TODO)
 
 
 
@@ -226,6 +224,7 @@ This code has an MIT license and therefore it is free.
 ## References
 
 [1] (https://en.wikipedia.org/wiki/Memoization)
+
 [2] (https://en.wikipedia.org/wiki/Cache_replacement_policies)
 
 For another take on LRU caching, check out also [LRUCache.jl](https://github.com/JuliaCollections/LRUCache.jl) and [Memoize.jl](https://github.com/simonster/Memoize.jl)

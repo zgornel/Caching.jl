@@ -15,9 +15,16 @@ MemoryCache(f::T where T<:Function;
 	MemoryCache(name, f, Dict{input_type, output_type}())
 
 
+function hashes(args...; kwargs...)
+    _h1 = hash(hash(arg)+hash(typeof(arg)) for arg in args)
+    _h2 = hash(hash(kwarg) for kwarg in kwargs)
+    return hash(_h1 + _h2)
+end
+
+
 # Call method
 (mc::T where T<:MemoryCache)(args...; kwargs...) = begin
-    _hash = hash([map(hash, args)..., map(hash, collect(kwargs))...])
+    _hash = hashes(args...; kwargs...)
     if _hash in keys(mc.cache)
         out = mc.cache[_hash]
     else

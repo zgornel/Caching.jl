@@ -21,7 +21,7 @@ MemoryCache(f::T where T<:Function;
     if _hash in keys(mc.cache)
         out = mc.cache[_hash]
     else
-        @info "Hash miss, caching hash=$_hash..."
+        @debug "Hash miss, caching hash=$_hash..."
         out = mc.func(args...; kwargs...)
         mc.cache[_hash] = out
     end
@@ -42,7 +42,6 @@ end
 # 	julia> foo(x) = x+1
 # 	julia> fooc = @memcache foo # now `fooc` is the cached version of `foo`
 macro memcache(symb::Symbol)
-    @assert isdefined(Main, symb)
     _name = String(symb)
     ex = quote
         try
@@ -66,7 +65,6 @@ macro memcache(expr::Expr)
     _type = eval(_typesymbol)
     _name = String(_symb)
     
-    @assert isdefined(Main, _symb)  # check that symbol exists
     try
         @assert _type isa Type
     catch  # it may be a variable containing a type

@@ -19,9 +19,9 @@ export AbstractCache,
     empty!,
     @diskcache,
     @memcache,
-    @syncache,
-    @persist,
-    @empty
+    @syncache!,
+    @persist!,
+    @empty!
 
 include("memcache.jl")
 include("diskcache.jl")

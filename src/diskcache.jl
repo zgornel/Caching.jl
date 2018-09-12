@@ -45,7 +45,6 @@ end
 # 	julia> fooc = @diskcache foo # now `fooc` is the cached version of `foo`
 macro diskcache(symb::Symbol, filename::String=
                 _generate_cache_filename(string(symb)))
-    @assert isdefined(Main, symb)
     _name = String(symb)
     ex = quote
         try
@@ -72,7 +71,6 @@ macro diskcache(expr::Expr, filename::String=
 	_type = eval(_typesymbol)
 	_name = String(_symb)
 
-	@assert isdefined(Main, _symb)  # check that symbol exists
 	try
         @assert _type isa Type
 	catch  # it may be a variable containing a type

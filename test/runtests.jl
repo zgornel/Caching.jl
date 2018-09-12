@@ -7,19 +7,13 @@ _a_float = rand()
 _a_float_2 = rand()
 _an_int = rand(Int)
 
-N = 3
-
-# Functions
-function foo(x)
-	return x
-end
-
-function bar(x; y=1)
-	return x+y
-end
 
 # Test MemoryCache, @memcahe
 @testset "MemoryCache" begin
+    # Define functions
+    foo(x) = x
+    bar(x; y=1) = x + y
+
     # Test caching of simple functions
     foo_c1 = LRUCaching.MemoryCache(foo)
     @test typeof(foo_c1) <: LRUCaching.AbstractCache
@@ -58,6 +52,10 @@ end
 
 # Test DiskCache, @diskcache
 @testset "DiskCache" begin
+    # Define functions
+    foo(x) = x
+    bar(x; y=1) = x + y
+
     # Test caching of simple functions
     foo_c1 = LRUCaching.DiskCache(foo)
     @test typeof(foo_c1) <: LRUCaching.AbstractCache
@@ -102,7 +100,7 @@ end
 
 # Test functionality contained in the utils
 @testset "Conversion constructors" begin
-    _tmpfile = "_tmpfile.bin"
+    # Define functions
     foo(x) = x+1
     bar(x) = x-1
 
@@ -111,11 +109,13 @@ end
     dc = @diskcache foo
 
     # Construct cache objects using conversions
+    _tmpfile = "_tmpfile.bin"
     mc_t = MemoryCache(dc)
     dc_t1 = DiskCache(mc)
     dc_t2 = DiskCache(mc, filename=_tmpfile)
 
     # Fill the cache
+    N = 3
     for i in 1:N
         mc_t(rand())
         dc_t1(rand())
@@ -141,51 +141,94 @@ end
 end
 
 
-# TODO(Corneliu): test synccache!, @synccache
-@testset "syncache!, @syncache" begin
+# syncache!, @syncache!
+@testset "syncache!, @syncache!" begin
+    # Define functions
+    foo(x) = x+1  # define function
+    
+    N1 = 5
+    fc = @diskcache foo "somefile.bin"  # make a DiskCache object
+    [fc(i) for i in 1:N1]  # populate the memorycache
+    @persist! fc  # write to disk the cache
+    @empty! fc  # delete the memory cache
+    @test length(fc.memcache.cache) == 0
+    @syncache! fc "disk"  # load cache from disk
+    @test isfile(fc.filename)
+    @test length(fc.memcache.cache) == N1
+    @empty! fc  # 5 entries on disk, 0 in memory
+
+    N2 = 3
+    [fc(-i) for i in 1:N2]  # populate the memory cache
+    @syncache! fc "memory"  # write memory cache to disk
+    @test length(fc.memcache.cache) == N2
+    @empty! fc
+    @test length(fc.memcache.cache) == 0
+    @syncache! fc "disk"    # load cache from disk
+    @test length(fc.memcache.cache) == N1 + N2
+    @empty! fc true  # remove everything
+
+    [fc(i) for i in 1:N1]  # populate the memorycache
+    @syncache! fc "memory"  # write to disk
+    @empty! fc
+    [fc(-i) for i in 1:N1]  # populate the memorycache
+    @syncache! fc "both"     # sync both memory and disk
+    @test length(fc.offsets) == 2*N1
+    @test length(fc.memcache.cache) == 2*N1
+    @empty! fc true
+    @test !isfile(fc.filename)
 end
 
-# empty!, @empty
-@testset "empty!, @empty" begin
+
+# empty!, @empty!
+@testset "empty!, @empty!" begin
+    # Define functions
+    foo(x) = x
+    bar(x; y=1) = x + y
+
     mc = @memcache foo; mc(1)
     @test length(mc.cache) == 1
-    @empty mc
+    @empty! mc
     @test isempty(mc.cache)
 
     dc = @diskcache foo; dc(1)
     @test length(dc.memcache.cache) == 1
-    @persist dc "somefile.bin"
+    @persist! dc "somefile.bin"
     @test length(dc.offsets) == 1
     @test isfile("somefile.bin")
-    @empty dc true  # remove offsets and file
+    @empty! dc true  # remove offsets and file
     @test isempty(dc.memcache.cache)
     @test !isfile("somefile.bin")
     @test isempty(dc.offsets)
 end
 
-# persist!, @persist
-@testset "persist!, @persist" begin
+
+# persist!, @persist!
+@testset "persist!, @persist!" begin
+    # Define functions
+    foo(x) = x
+
     mc = @memcache foo
     dc = @diskcache foo "somefile.bin"
     @test dc.filename == abspath("somefile.bin")
     @test isempty(dc.offsets)
+    N = 3
     for i in 1:N dc(i); mc(i) end  # add N entries
 
-    _path, _offsets = @persist mc "memfile.bin"
+    _path, _offsets = @persist! mc "memfile.bin"
     @test isabspath(_path)
     @test typeof(_offsets) <: Dict{<:Unsigned, <:Tuple{Int, Int}}
     @test length(_offsets) == N
     @test isfile("memfile.bin")
     rm("memfile.bin")
 
-    @persist dc
+    @persist! dc
     @test length(dc.offsets) == N
     @test isfile("somefile.bin")
     @test dc.filename == abspath("somefile.bin")
     buf = open(read, "somefile.bin")
     rm("somefile.bin")
 
-    @persist dc "some_other_file.bin"
+    @persist! dc "some_other_file.bin"
     @test length(dc.offsets) == N
     @test isfile("some_other_file.bin")
     @test dc.filename == abspath("some_other_file.bin")

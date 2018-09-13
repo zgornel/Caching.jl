@@ -11,6 +11,7 @@ import Base: show, empty!
 abstract type AbstractCache end
 
 export AbstractCache,
+    arghash,
     MemoryCache,
     DiskCache,
     syncache!,
@@ -22,8 +23,8 @@ export AbstractCache,
     @persist!,
     @empty!
 
-include("memcache.jl")
-include("diskcache.jl")
-include("utils.jl")
-
+    include("hash.jl")
+    include("memcache.jl")
+    include("diskcache.jl")
+    include("utils.jl")
 end  # module

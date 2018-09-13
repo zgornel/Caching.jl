@@ -109,6 +109,27 @@ julia> isfile("somefile.bin")
 false
 ```
 
+In case of a `DiskCache` memory hash miss, the cached data is retrieved from disk if available:
+```julia
+julia> dc = @diskcache foo::Int "somefile.bin"
+       for i in 1:3 dc(i); end  # add 3 entries
+       @persist! dc
+       @assert isfile("somefile.bin")
+       @empty! dc  # empty memory cache
+       @assert isempty(dc.memcache.cache)
+       for i in 4:6 dc(i); end  # add 3 new entries
+       dc
+# foo (disk cache with 6 entries, 3 in memory 3 on disk)
+
+julia> dc(1)  # only on disk
+# ┌ Warning: Memory hash miss, loading hash=0xfd4c549ffbee2b1b...
+# └ @ Caching ~/projects/Caching.jl/src/diskcache.jl:65
+# 1
+
+julia> dc(4)  # in memory
+# 4
+```
+
 `DiskCache` objects support also a basic form of synchronization between the memory and disk cache contents. This is done with the help of the `syncache!` function and `@syncache!` macro:
 ```julia
 julia> dc = @diskcache foo "somefile.bin"  # make a DiskCache object

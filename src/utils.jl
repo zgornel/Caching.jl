@@ -18,9 +18,8 @@ function _check_disk_cache(filename::String, offsets::D where D<:Dict,
         @assert I == input_type
         O = deserialize(fid)
         @assert O == output_type
-        for (_, (prevpos, newpos)) in offsets
-            seek(fid, prevpos)
-            out = deserialize(fid)
+        for (_, (startpos, endpos)) in offsets
+            _load_disk_cache_entry(fid, startpos)
         end
         return true
     catch excep
@@ -30,79 +29,9 @@ function _check_disk_cache(filename::String, offsets::D where D<:Dict,
 end
 
 
-# `with` parameter behavior:
-#   "both" - memory and disk concents are combined, memory values update disk
-#   "disk" - memory cache contents are updated with disk ones
-#   "memory" - disk cache contents are updated with memory ones
-function syncache!(dc::DiskCache{T, I, O};
-                   with::String="both") where {T, I, O}
-    # Check keyword argument values, correct unknown values
-    _default_with = "both"
-    noff = length(dc.offsets)
-    !(with in ["disk", "memory", "both"]) && begin
-        @warn "Unrecognized value with=$with, defaulting to $_default_with."
-        with = _default_with
-    end
-
-    # Cache synchronization
-    if !isfile(dc.filename)
-        if with == "both" || with == "memory"
-            noff != 0 && @warn "Missing cache file, will write memory cache to disk."
-            persist!(dc)
-        else
-            @warn "Missing cache file, will delete all cache."
-            empty!(dc)
-        end
-    else
-        cache_ok = _check_disk_cache(dc.filename, dc.offsets, I, O)
-        if !cache_ok && with != "disk"
-            @warn "Inconsistent cache, overwriting disk contents."
-            persist!(dc)
-        elseif !cache_ok && with == "disk"
-            @warn "Inconsistent cache, will delete all cache."
-            empty!(dc, empty_disk=true)
-        else  # cache_ok
-            # At this point, the `offsets` dictionary should reflect
-            # the structure of the file pointed at by the `filename` field
-            mode = ifelse(with == "both" || with == "memory", "a+", "r")
-            memonly = setdiff(keys(dc.memcache.cache), keys(dc.offsets))
-            diskonly = setdiff(keys(dc.offsets), keys(dc.memcache.cache))
-            fid = open(dc.filename, mode)
-            # Load from disk to memory
-            if with != "memory"
-                for hash in diskonly
-                    pos = dc.offsets[hash][1]
-                    seek(fid, pos)
-                    datum  = deserialize(fid)
-                    push!(dc.memcache.cache, hash=>datum)
-                end
-            end
-            # Write memory to disk and update offsets
-            if with != "disk"
-                for hash in memonly
-                    datum = dc.memcache.cache[hash]
-                    prevpos = position(fid)
-                    serialize(fid, datum);
-                    newpos = position(fid)
-                    push!(dc.offsets, hash=>(prevpos, newpos))
-                end
-            end
-            close(fid)
-        end
-    end
-    return dc
-end
-
-
-macro syncache!(symb::Symbol, with::String="both")
-    return esc(:(syncache!($symb, with=$with)))
-end
-
-
 # Function that dumps the MemoryCache cache to disk
 # and returns the filename and offsets dictionary
 # TODO(Corneliu): Add compression support
-# TODO(Corneliu): Support for appending to existing data
 function persist!(mc::MemoryCache{T, I, O}; filename::String=
                   _generate_cache_filename(mc.name)) where {T, I, O}
     # Initialize structures
@@ -115,11 +44,10 @@ function persist!(mc::MemoryCache{T, I, O}; filename::String=
     serialize(fid, I)
     serialize(fid, O)
     # Write data pairs
-    for (hash, datum) in _data
-        prevpos = position(fid)
-        serialize(fid, datum)
-        newpos = position(fid)
-        push!(offsets, hash=>(prevpos, newpos))
+    for (_hash, datum) in _data
+        startpos = position(fid)
+        endpos = _store_disk_cache_entry(fid, startpos, datum)
+        push!(offsets, _hash=>(startpos, endpos))
     end
     close(fid)
     return abspath(filename), offsets
@@ -163,4 +91,71 @@ end
 
 macro empty!(symb::Symbol, empty_disk::Bool=false)
     return esc(:(empty!($symb, empty_disk=$empty_disk)))
+end
+
+
+# `with` parameter behavior:
+#   "both" - memory and disk concents are combined, memory values update disk
+#   "disk" - memory cache contents are updated with disk ones
+#   "memory" - disk cache contents are updated with memory ones
+function syncache!(dc::DiskCache{T, I, O};
+                   with::String="both") where {T, I, O}
+    # Check keyword argument values, correct unknown values
+    _default_with = "both"
+    noff = length(dc.offsets)
+    !(with in ["disk", "memory", "both"]) && begin
+        @warn "Unrecognized value with=$with, defaulting to $_default_with."
+        with = _default_with
+    end
+
+    # Cache synchronization
+    if !isfile(dc.filename)
+        if with == "both" || with == "memory"
+            noff != 0 && @warn "Missing cache file, will write memory cache to disk."
+            persist!(dc)
+        else
+            @warn "Missing cache file, will delete all cache."
+            empty!(dc)
+        end
+    else
+        cache_ok = _check_disk_cache(dc.filename, dc.offsets, I, O)
+        if !cache_ok && with != "disk"
+            @warn "Inconsistent cache, overwriting disk contents."
+            persist!(dc)
+        elseif !cache_ok && with == "disk"
+            @warn "Inconsistent cache, will delete all cache."
+            empty!(dc, empty_disk=true)
+        else  # cache_ok
+            # At this point, the `offsets` dictionary should reflect
+            # the structure of the file pointed at by the `filename` field
+            mode = ifelse(with == "both" || with == "memory", "a+", "r")
+            memonly = setdiff(keys(dc.memcache.cache), keys(dc.offsets))
+            diskonly = setdiff(keys(dc.offsets), keys(dc.memcache.cache))
+            fid = open(dc.filename, mode)
+            # Load from disk to memory
+            if with != "memory"
+                for _hash in diskonly
+                    startpos = dc.offsets[_hash][1]
+                    datum = _load_disk_cache_entry(fid, startpos)
+                    push!(dc.memcache.cache, _hash=>datum)
+                end
+            end
+            # Write memory to disk and update offsets
+            if with != "disk"
+                for _hash in memonly
+                    datum = dc.memcache.cache[_hash]
+                    startpos = position(fid)
+                    endpos = _store_disk_cache_entry(fid, startpos, datum)
+                    push!(dc.offsets, _hash=>(startpos, endpos))
+                end
+            end
+            close(fid)
+        end
+    end
+    return dc
+end
+
+
+macro syncache!(symb::Symbol, with::String="both")
+    return esc(:(syncache!($symb, with=$with)))
 end

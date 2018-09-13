@@ -95,6 +95,18 @@ end
 			@test _foo.memcache.cache isa Dict{UInt64, Any}
 		end
 	end
+
+    dc = @diskcache foo "somefile.bin"
+    for i in 1:3 dc(i); end
+    @persist! dc
+    @empty! dc
+    @test length(dc.offsets) == 3
+    @test isempty(dc.memcache.cache)
+    for i in 4:6 dc(i); end
+    for i in 1:6
+        @test dc(i) == foo(i) == i
+    end
+    @empty! dc true
 end
 
 
@@ -151,7 +163,7 @@ end
     [fc(i) for i in 1:n1]  # populate the memorycache
     @persist! fc  # write to disk the cache
     @empty! fc  # delete the memory cache
-    @test length(fc.memcache.cache) == 0
+    @test isempty(fc.memcache.cache)
     @syncache! fc "disk"  # load cache from disk
     @test isfile(fc.filename)
     @test length(fc.memcache.cache) == n1
@@ -162,7 +174,7 @@ end
     @syncache! fc "memory"  # write memory cache to disk
     @test length(fc.memcache.cache) == n2
     @empty! fc
-    @test length(fc.memcache.cache) == 0
+    @test isempty(fc.memcache.cache)
     @syncache! fc "disk"    # load cache from disk
     @test length(fc.memcache.cache) == n1 + n2
     @empty! fc true  # remove everything
@@ -236,4 +248,25 @@ end
     rm("some_other_file.bin")
 
     @test buf == buf2  # sanity check
+end
+
+# show methods
+@testset "show" begin
+    buf = IOBuffer()
+    foo(x) = x
+    mc = @memcache foo
+    dc = @diskcache foo "somefile.bin"
+    try
+        show(buf, mc)
+        @test true
+    catch
+        @test false
+    end
+
+    try
+        show(buf, dc)
+        @test true
+    catch
+        @test false
+    end
 end

@@ -15,20 +15,13 @@ MemoryCache(f::T where T<:Function;
 	MemoryCache(name, f, Dict{input_type, output_type}())
 
 
-function hashes(args...; kwargs...)
-    _h1 = hash(hash(arg)+hash(typeof(arg)) for arg in args)
-    _h2 = hash(hash(kwarg) for kwarg in kwargs)
-    return hash(_h1 + _h2)
-end
-
-
 # Call method
 (mc::T where T<:MemoryCache)(args...; kwargs...) = begin
-    _hash = hashes(args...; kwargs...)
+    _hash = arghash(args...; kwargs...)
     if _hash in keys(mc.cache)
         out = mc.cache[_hash]
     else
-        @debug "Hash miss, caching hash=$_hash..."
+        @debug "Hash miss, adding hash=0x$(string(_hash, base=16))..."
         out = mc.func(args...; kwargs...)
         mc.cache[_hash] = out
     end

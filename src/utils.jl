@@ -15,9 +15,9 @@ function _check_disk_cache(filename::String, offsets::D where D<:Dict,
     fid = open(filename, "r")
     try
         I = deserialize(fid)
-		@assert I == input_type
+        @assert I == input_type
         O = deserialize(fid)
-		@assert O == output_type
+        @assert O == output_type
         for (_, (prevpos, newpos)) in offsets
             seek(fid, prevpos)
             out = deserialize(fid)
@@ -116,11 +116,11 @@ function persist!(mc::MemoryCache{T, I, O}; filename::String=
     serialize(fid, O)
     # Write data pairs
     for (hash, datum) in _data
-		prevpos = position(fid)
-		serialize(fid, datum);
-		newpos = position(fid)
+        prevpos = position(fid)
+        serialize(fid, datum)
+        newpos = position(fid)
         push!(offsets, hash=>(prevpos, newpos))
-	end
+    end
     close(fid)
     return abspath(filename), offsets
 end

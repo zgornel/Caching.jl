@@ -36,9 +36,9 @@ show(io::IO, dc::DiskCache) = begin
     _dsz = length(dc.offsets)
     _tsz = length(symdiff(keys(dc.memcache.cache), keys(dc.offsets))) +
            length(intersect(keys(dc.memcache.cache), keys(dc.offsets)))
-    _en = ifelse(_msz == 1, "entry", "entries")
+    _en = ifelse(_tsz == 1, "entry", "entries")
     println(io, "$(dc.memcache.name) " *
-            "(disk cache with $_tsz $_en, $_dsz on disk)")
+            "(disk cache with $_tsz $_en, $_msz in memory $_dsz on disk)")
 end
 
 

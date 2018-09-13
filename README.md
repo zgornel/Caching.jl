@@ -1,10 +1,10 @@
-# LRUCaching
+# Caching.jl
 
-A minimalistic approach to LRU caching in Julia.
+A minimalistic approach to method caching in Julia.
 
 [![License](http://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)](LICENSE.md) 
-[![Build Status](https://travis-ci.org/zgornel/LRUCaching.jl.svg?branch=master)](https://travis-ci.org/zgornel/LRUCaching.jl) 
-[![Coverage Status](https://coveralls.io/repos/github/zgornel/LRUCaching.jl/badge.svg?branch=master)](https://coveralls.io/github/zgornel/LRUCaching.jl?branch=master)
+[![Build Status](https://travis-ci.org/zgornel/Caching.jl.svg?branch=master)](https://travis-ci.org/zgornel/Caching.jl) 
+[![Coverage Status](https://coveralls.io/repos/github/zgornel/Caching.jl/badge.svg?branch=master)](https://coveralls.io/github/zgornel/Caching.jl?branch=master)
 
 ## Introduction
 
@@ -208,4 +208,4 @@ This code has an MIT license and therefore it is free.
 
 [2] (https://en.wikipedia.org/wiki/Cache_replacement_policies)
 
-For another take on LRU caching, check out also [LRUCache.jl](https://github.com/JuliaCollections/LRUCache.jl) and [Memoize.jl](https://github.com/simonster/Memoize.jl)
+For other caching solutions,  check out also [LRUCache.jl](https://github.com/JuliaCollections/LRUCache.jl) and [Memoize.jl](https://github.com/simonster/Memoize.jl)

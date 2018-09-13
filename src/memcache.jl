@@ -17,11 +17,11 @@ MemoryCache(f::T where T<:Function;
 
 # Call method
 (mc::T where T<:MemoryCache)(args...; kwargs...) = begin
-    _hash = hash([map(hash, args)..., map(hash, collect(kwargs))...])
+    _hash = arghash(args...; kwargs...)
     if _hash in keys(mc.cache)
         out = mc.cache[_hash]
     else
-        @debug "Hash miss, caching hash=$_hash..."
+        @debug "Hash miss, adding hash=0x$(string(_hash, base=16))..."
         out = mc.func(args...; kwargs...)
         mc.cache[_hash] = out
     end
@@ -30,9 +30,11 @@ end
 
 
 # Show method
-show(io::IO, c::MemoryCache) = begin
-    println(io, "Memory cache for \"$(c.name)\" " *
-            "with $(length(c.cache)) entries.")
+show(io::IO, mc::MemoryCache) = begin
+    _msz = length(mc.cache)
+    _en = ifelse(_msz == 1, "entry", "entries")
+    println(io, "$(mc.name) " *
+            "(memory cache with $_msz $_en)")
 end
 
 

@@ -18,7 +18,7 @@ end
 DiskCache(f::T where T<:Function;
 		  name::String = string(f),
 		  filename::String = _generate_cache_filename(name),
-		  input_type::Type=UInt64,
+		  input_type::Type=UInt,
 		  output_type::Type=Any) = begin
     DiskCache(abspath(filename),
               MemoryCache(name, f, Dict{input_type, output_type}()),
@@ -26,20 +26,58 @@ DiskCache(f::T where T<:Function;
 end
 
 
-# Call method (caches only to memory, caching to disk has to be explicit)
-(dc::T where T<:DiskCache)(args...; kwargs...) = dc.memcache(args...; kwargs...)
-
-
 # Show method
 show(io::IO, dc::DiskCache) = begin
-	println(io, "Disk cache for \"$(dc.memcache.name)\" " *
-            "with $(length(dc.memcache.cache)) entries, $(length(dc.offsets)) on disk.")
+    _msz = length(dc.memcache.cache)
+    _dsz = length(dc.offsets)
+    _tsz = length(symdiff(keys(dc.memcache.cache), keys(dc.offsets))) +
+           length(intersect(keys(dc.memcache.cache), keys(dc.offsets)))
+    _en = ifelse(_tsz == 1, "entry", "entries")
+    println(io, "$(dc.memcache.name) " *
+            "(disk cache with $_tsz $_en, $_msz in memory $_dsz on disk)")
+end
+
+
+# Function that retrieves one entry from a stream
+# TODO(Corneliu): Implement
+function _load_disk_cache_entry(io::T where T<:IO, pos::Int)
+    seek(io, pos)
+    datum = deserialize(io)
+    return datum
+end
+
+
+# Function that stores one entry to a stream
+# TODO(Corneliu): Implement
+function _store_disk_cache_entry(io::T where T<:IO, pos::Int, datum)
+    seek(io, pos)
+    serialize(io, datum)
+    return position(io)
+end
+
+
+# Call method (caches only to memory, caching to disk has to be explicit)
+(dc::DiskCache{T, I, O})(args...; kwargs...) where {T, I, O} = begin
+    _hash = arghash(args...; kwargs...)
+    if _hash in keys(dc.memcache.cache)
+        return dc.memcache.cache[_hash]
+    elseif _hash in keys(dc.offsets)
+        @warn "Memory hash miss, loading hash=0x$(string(_hash, base=16))..."
+        fid = open(dc.filename)
+        startpos = dc.offsets[_hash][1]
+        datum = _load_disk_cache_entry(fid, startpos)
+        close(fid)
+        return datum::O
+    else
+        return dc.memcache(args...; kwargs...)
+    end
 end
 
 
 # Macros
 # TODO(Corneliu): Support macro arguments i.e. julia> @diskcache @memcache foo
-#
+# TODO(Corneliu): Support julia> @diskcache foo(x) = begin ... end and other
+#   method and function definition forms
 # Macro supporting construnctions of the form:
 # 	julia> foo(x) = x+1
 # 	julia> fooc = @diskcache foo # now `fooc` is the cached version of `foo`

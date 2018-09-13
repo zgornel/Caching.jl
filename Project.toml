@@ -1,4 +1,4 @@
-name = "LRUCaching"
+name = "Caching"
 uuid = "279f16dc-a520-11e8-3dd4-c109b0eed59e"
 authors = ["Corneliu Cofaru <cornel@oxoaresearch.com>"]
 version = "0.0.1"

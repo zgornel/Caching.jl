@@ -15,18 +15,82 @@ function _check_disk_cache(filename::String, offsets::D where D<:Dict,
     fid = open(filename, "r")
     try
         I = deserialize(fid)
-		@assert I == input_type
+        @assert I == input_type
         O = deserialize(fid)
-		@assert O == output_type
-        for (_, (prevpos, newpos)) in offsets
-            seek(fid, prevpos)
-            out = deserialize(fid)
+        @assert O == output_type
+        for (_, (startpos, endpos)) in offsets
+            _load_disk_cache_entry(fid, startpos)
         end
         return true
     catch excep
         close(fid)
         return false
     end
+end
+
+
+# Function that dumps the MemoryCache cache to disk
+# and returns the filename and offsets dictionary
+# TODO(Corneliu): Add compression support
+function persist!(mc::MemoryCache{T, I, O}; filename::String=
+                  _generate_cache_filename(mc.name)) where {T, I, O}
+    # Initialize structures
+    _data = mc.cache
+    offsets = Dict{I, Tuple{Int, Int}}()
+    _dir = join(split(filename, "/")[1:end-1], "/")
+    !isempty(_dir) && !isdir(_dir) && mkdir(_dir)
+    # Write header
+    fid = open(filename, "w")  # overwrite/create file
+    serialize(fid, I)
+    serialize(fid, O)
+    # Write data pairs
+    for (_hash, datum) in _data
+        startpos = position(fid)
+        endpos = _store_disk_cache_entry(fid, startpos, datum)
+        push!(offsets, _hash=>(startpos, endpos))
+    end
+    close(fid)
+    return abspath(filename), offsets
+end
+
+
+# Function that dumps the DiskCache memory component to disk
+# and updates the offsets dictionary
+function persist!(dc::T; filename::String=dc.filename) where T<:DiskCache
+    dc.filename, dc.offsets = persist!(dc.memcache, filename=filename)
+    return dc
+end
+
+
+macro persist!(symb::Symbol, filename::String...)
+    if isempty(filename)
+        return esc(:(persist!($symb)))
+    else
+        return esc(:(persist!($symb, filename=$(filename[1]))))
+    end
+end
+
+
+# Erases the memory cache
+function empty!(mc::MemoryCache; empty_disk::Bool=false)
+    empty!(mc.cache)
+    return mc
+end
+
+
+# Erases the memory and possibly the disk cache
+function empty!(dc::DiskCache; empty_disk::Bool=false)
+    empty!(dc.memcache)     # remove memory cache
+    if empty_disk           # remove offset structure and the file
+        empty!(dc.offsets)
+        isfile(dc.filename) && rm(dc.filename, recursive=true, force=true)
+    end
+    return dc
+end
+
+
+macro empty!(symb::Symbol, empty_disk::Bool=false)
+    return esc(:(empty!($symb, empty_disk=$empty_disk)))
 end
 
 
@@ -70,21 +134,19 @@ function syncache!(dc::DiskCache{T, I, O};
             fid = open(dc.filename, mode)
             # Load from disk to memory
             if with != "memory"
-                for hash in diskonly
-                    pos = dc.offsets[hash][1]
-                    seek(fid, pos)
-                    datum  = deserialize(fid)
-                    push!(dc.memcache.cache, hash=>datum)
+                for _hash in diskonly
+                    startpos = dc.offsets[_hash][1]
+                    datum = _load_disk_cache_entry(fid, startpos)
+                    push!(dc.memcache.cache, _hash=>datum)
                 end
             end
             # Write memory to disk and update offsets
             if with != "disk"
-                for hash in memonly
-                    datum = dc.memcache.cache[hash]
-                    prevpos = position(fid)
-                    serialize(fid, datum);
-                    newpos = position(fid)
-                    push!(dc.offsets, hash=>(prevpos, newpos))
+                for _hash in memonly
+                    datum = dc.memcache.cache[_hash]
+                    startpos = position(fid)
+                    endpos = _store_disk_cache_entry(fid, startpos, datum)
+                    push!(dc.offsets, _hash=>(startpos, endpos))
                 end
             end
             close(fid)
@@ -96,71 +158,4 @@ end
 
 macro syncache!(symb::Symbol, with::String="both")
     return esc(:(syncache!($symb, with=$with)))
-end
-
-
-# Function that dumps the MemoryCache cache to disk
-# and returns the filename and offsets dictionary
-# TODO(Corneliu): Add compression support
-# TODO(Corneliu): Support for appending to existing data
-function persist!(mc::MemoryCache{T, I, O}; filename::String=
-                  _generate_cache_filename(mc.name)) where {T, I, O}
-    # Initialize structures
-    _data = mc.cache
-    offsets = Dict{I, Tuple{Int, Int}}()
-    _dir = join(split(filename, "/")[1:end-1], "/")
-    !isempty(_dir) && !isdir(_dir) && mkdir(_dir)
-    # Write header
-    fid = open(filename, "w")  # overwrite/create file
-    serialize(fid, I)
-    serialize(fid, O)
-    # Write data pairs
-    for (hash, datum) in _data
-		prevpos = position(fid)
-		serialize(fid, datum);
-		newpos = position(fid)
-        push!(offsets, hash=>(prevpos, newpos))
-	end
-    close(fid)
-    return abspath(filename), offsets
-end
-
-
-# Function that dumps the DiskCache memory component to disk
-# and updates the offsets dictionary
-function persist!(dc::T; filename::String=dc.filename) where T<:DiskCache
-    dc.filename, dc.offsets = persist!(dc.memcache, filename=filename)
-    return dc
-end
-
-
-macro persist!(symb::Symbol, filename::String...)
-    if isempty(filename)
-        return esc(:(persist!($symb)))
-    else
-        return esc(:(persist!($symb, filename=$(filename[1]))))
-    end
-end
-
-
-# Erases the memory cache
-function empty!(mc::MemoryCache; empty_disk::Bool=false)
-    empty!(mc.cache)
-    return mc
-end
-
-
-# Erases the memory and possibly the disk cache
-function empty!(dc::DiskCache; empty_disk::Bool=false)
-    empty!(dc.memcache)     # remove memory cache
-    if empty_disk           # remove offset structure and the file
-        empty!(dc.offsets)
-        isfile(dc.filename) && rm(dc.filename, recursive=true, force=true)
-    end
-    return dc
-end
-
-
-macro empty!(symb::Symbol, empty_disk::Bool=false)
-    return esc(:(empty!($symb, empty_disk=$empty_disk)))
 end

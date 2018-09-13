@@ -1,6 +1,6 @@
 using Test
 using Random
-using LRUCaching
+using Caching
 
 # Function arguments
 _a_float = rand()
@@ -15,15 +15,15 @@ _an_int = rand(Int)
     bar(x; y=1) = x + y
 
     # Test caching of simple functions
-    foo_c1 = LRUCaching.MemoryCache(foo)
-    @test typeof(foo_c1) <: LRUCaching.AbstractCache
-    @test typeof(foo_c1) <: LRUCaching.MemoryCache
+    foo_c1 = MemoryCache(foo)
+    @test typeof(foo_c1) <: AbstractCache
+    @test typeof(foo_c1) <: MemoryCache
     @test foo(_a_float) == foo_c1(_a_float)
 
     # Test functions with keyword arguments
-    bar_c1 = LRUCaching.MemoryCache(bar)
-    @test typeof(bar_c1) <: LRUCaching.AbstractCache
-    @test typeof(bar_c1) <: LRUCaching.MemoryCache
+    bar_c1 = MemoryCache(bar)
+    @test typeof(bar_c1) <: AbstractCache
+    @test typeof(bar_c1) <: MemoryCache
     @test bar(_a_float) == bar_c1(_a_float)
     @test bar(_a_float; y=_a_float_2) == bar_c1(_a_float; y=_a_float_2)
 
@@ -31,8 +31,8 @@ _an_int = rand(Int)
     foo_m1 = @memcache foo			# no type annotations
 	foo_m2 = @memcache foo::Int		# standard type annotation
 	for _foo in (foo_m1, foo_m2)
-    	@test typeof(_foo) <: LRUCaching.AbstractCache
-    	@test typeof(_foo) <: LRUCaching.MemoryCache
+    	@test typeof(_foo) <: AbstractCache
+    	@test typeof(_foo) <: MemoryCache
 		@test _foo(_an_int) == foo(_an_int)	 # all should work with Int's
 		if !(_foo === foo_m1)
 		# `foo_m2` fails with arguments other than `Int`
@@ -57,18 +57,18 @@ end
     bar(x; y=1) = x + y
 
     # Test caching of simple functions
-    foo_c1 = LRUCaching.DiskCache(foo)
-    @test typeof(foo_c1) <: LRUCaching.AbstractCache
-    @test typeof(foo_c1) <: LRUCaching.DiskCache
-    @test typeof(foo_c1.memcache) <: LRUCaching.MemoryCache
+    foo_c1 = DiskCache(foo)
+    @test typeof(foo_c1) <: AbstractCache
+    @test typeof(foo_c1) <: DiskCache
+    @test typeof(foo_c1.memcache) <: MemoryCache
 	@test :filename in fieldnames(typeof(foo_c1))
     @test foo(_a_float) == foo_c1(_a_float)
 
     # Test functions with keyword arguments
-    bar_c1 = LRUCaching.DiskCache(bar)
-    @test typeof(bar_c1) <: LRUCaching.AbstractCache
-    @test typeof(bar_c1) <: LRUCaching.DiskCache
-    @test typeof(bar_c1.memcache) <: LRUCaching.MemoryCache
+    bar_c1 = DiskCache(bar)
+    @test typeof(bar_c1) <: AbstractCache
+    @test typeof(bar_c1) <: DiskCache
+    @test typeof(bar_c1.memcache) <: MemoryCache
 	@test :filename in fieldnames(typeof(bar_c1))
     @test bar(_a_float) == bar_c1(_a_float)
     @test bar(_a_float; y=_a_float_2) == bar_c1(_a_float; y=_a_float_2)
@@ -77,9 +77,9 @@ end
     foo_m1 = @diskcache foo			# no type annotations
 	foo_m2 = @diskcache foo::Int	# standard type annotation
 	for _foo in (foo_m1, foo_m2)
-    	@test typeof(_foo) <: LRUCaching.AbstractCache
-    	@test typeof(_foo) <: LRUCaching.DiskCache
-    	@test typeof(_foo.memcache) <: LRUCaching.MemoryCache
+    	@test typeof(_foo) <: AbstractCache
+    	@test typeof(_foo) <: DiskCache
+    	@test typeof(_foo.memcache) <: MemoryCache
 		@test :filename in fieldnames(typeof(_foo))
 		@test _foo(_an_int) == foo(_an_int)	 # all should work with Int's
 		if !(_foo === foo_m1)
@@ -95,6 +95,18 @@ end
 			@test _foo.memcache.cache isa Dict{UInt64, Any}
 		end
 	end
+
+    dc = @diskcache foo "somefile.bin"
+    for i in 1:3 dc(i); end
+    @persist! dc
+    @empty! dc
+    @test length(dc.offsets) == 3
+    @test isempty(dc.memcache.cache)
+    for i in 4:6 dc(i); end
+    for i in 1:6
+        @test dc(i) == foo(i) == i
+    end
+    @empty! dc true
 end
 
 
@@ -151,7 +163,7 @@ end
     [fc(i) for i in 1:n1]  # populate the memorycache
     @persist! fc  # write to disk the cache
     @empty! fc  # delete the memory cache
-    @test length(fc.memcache.cache) == 0
+    @test isempty(fc.memcache.cache)
     @syncache! fc "disk"  # load cache from disk
     @test isfile(fc.filename)
     @test length(fc.memcache.cache) == n1
@@ -162,7 +174,7 @@ end
     @syncache! fc "memory"  # write memory cache to disk
     @test length(fc.memcache.cache) == n2
     @empty! fc
-    @test length(fc.memcache.cache) == 0
+    @test isempty(fc.memcache.cache)
     @syncache! fc "disk"    # load cache from disk
     @test length(fc.memcache.cache) == n1 + n2
     @empty! fc true  # remove everything
@@ -236,4 +248,25 @@ end
     rm("some_other_file.bin")
 
     @test buf == buf2  # sanity check
+end
+
+# show methods
+@testset "show" begin
+    buf = IOBuffer()
+    foo(x) = x
+    mc = @memcache foo
+    dc = @diskcache foo "somefile.bin"
+    try
+        show(buf, mc)
+        @test true
+    catch
+        @test false
+    end
+
+    try
+        show(buf, dc)
+        @test true
+    catch
+        @test false
+    end
 end

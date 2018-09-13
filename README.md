@@ -41,7 +41,7 @@ julia> mc.cache
 
 julia> @code_warntype mc(1)  # check type stability
 # Body::Int64
-# 20 1 ─ %1 = (getfield)(args, 1)::Int64                                                                                                                                                               │
+# 20 1 ─ %1 = (getfield)(args, 1)::Int64
 # ...
 ```
 
@@ -124,10 +124,10 @@ julia> dc = @diskcache foo::Int "somefile.bin"
 julia> dc(1)  # only on disk
 # ┌ Warning: Memory hash miss, loading hash=0xfd4c549ffbee2b1b...
 # └ @ Caching ~/projects/Caching.jl/src/diskcache.jl:65
-# 1
+# 2
 
 julia> dc(4)  # in memory
-# 4
+# 5
 ```
 
 `DiskCache` objects support also a basic form of synchronization between the memory and disk cache contents. This is done with the help of the `syncache!` function and `@syncache!` macro:
@@ -165,7 +165,7 @@ julia> dc.memcache.cache  # view the cache
 #   0xaa9c225ce8a1bd59 => 3
 #   ...
 
-julia> dc.offsetsa  # view the file offsets
+julia> dc.offsets  # view the file offsets
 # Dict{UInt64,Tuple{Int64,Int64}} with 8 entries:
 #   0xaa9c225ce8a1bd59 => (19, 28)
 #   ...
@@ -225,8 +225,8 @@ This code has an MIT license and therefore it is free.
 
 ## References
 
-[1] (https://en.wikipedia.org/wiki/Memoization)
+[1] https://en.wikipedia.org/wiki/Memoization
 
-[2] (https://en.wikipedia.org/wiki/Cache_replacement_policies)
+[2] https://en.wikipedia.org/wiki/Cache_replacement_policies
 
 For other caching solutions,  check out also [LRUCache.jl](https://github.com/JuliaCollections/LRUCache.jl) and [Memoize.jl](https://github.com/simonster/Memoize.jl)

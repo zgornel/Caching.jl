@@ -39,7 +39,6 @@ end
 
 
 # Function that retrieves one entry from a stream
-# TODO(Corneliu): Implement
 function _load_disk_cache_entry(io::T where T<:IO, pos::Int)
     seek(io, pos)
     datum = deserialize(io)
@@ -48,7 +47,6 @@ end
 
 
 # Function that stores one entry to a stream
-# TODO(Corneliu): Implement
 function _store_disk_cache_entry(io::T where T<:IO, pos::Int, datum)
     seek(io, pos)
     serialize(io, datum)

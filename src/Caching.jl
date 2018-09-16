@@ -6,6 +6,8 @@ module Caching
 
 using Random
 using Serialization
+using TranscodingStreams
+using CodecZlib, CodecBzip2, CodecLz4
 import Base: show, empty!
 
 abstract type AbstractCache end
@@ -23,8 +25,9 @@ export AbstractCache,
     @persist!,
     @empty!
 
-    include("hash.jl")
     include("memcache.jl")
     include("diskcache.jl")
+    include("hash.jl")
     include("utils.jl")
+    include("compression.jl")
 end  # module

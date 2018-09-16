@@ -8,7 +8,7 @@ A minimalistic approach to method caching in Julia.
 
 ## Introduction
 
-This package provides a simple programming interface to caching the function output (i.e. memoization) either to memory or to disk. To this purpose it has a simplistic API that exposes functionality for creating cache structures and accessing, writing and synchronizing these to disk. Since this a work-in-progress, there are bound to be rough edges and little to no documentation. However, the interface is accessible enough to be productively employed at this stage.
+This package provides a simple programming interface to caching the function output (i.e. memoization) either to memory or to disk. To this purpose it has a simplistic API that exposes functionality for creating cache structures and accessing, writing and synchronizing these to disk. Compression is supported through [TranscodingStreams.jl](https://github.com/bicycle1885/TranscodingStreams.jl) codecs. Since this a work-in-progress, there are bound to be rough edges and little to no documentation. However, the interface is accessible enough to be productively employed at this stage.
 
 
 
@@ -202,11 +202,9 @@ More usage examples can be found in the `test/runtests.jl` file.
 
 Some limitations of this package that will have to be taken into consideration are:
 - no support for a maximum size of the cache or replacement policy; only a full deletion of the cache is supported
-- no support for Julia v0.6 and lower
 - the cache access is not type-stable unless types are explicitly provided i.e. `@memcache foo::MyType`
 - the caching mechanism is unaware of any syste-wide limitations on either memory or disk (TODO)
 - multithreading/parallelism is not explicitly supported (TODO)
-- compression is not supported (TODO)
 - the `@memcache` and `@diskcache` do not support entire function definitions i.e. `@memcache foo(x)=x` or `@memcache x->x+1` (TODO)
 
 
@@ -229,4 +227,4 @@ This code has an MIT license and therefore it is free.
 
 [2] https://en.wikipedia.org/wiki/Cache_replacement_policies
 
-For other caching solutions,  check out also [LRUCache.jl](https://github.com/JuliaCollections/LRUCache.jl) and [Memoize.jl](https://github.com/simonster/Memoize.jl)
+For other caching solutions,  check out also [LRUCache.jl](https://github.com/JuliaCollections/LRUCache.jl), [Memoize.jl](https://github.com/simonster/Memoize.jl) and [Memoize.jl](https://github.com/colinfang/Memoize.jl) as well as [Anamnesis.jl](https://github.com/ExpandingMan/Anamnesis.jl)

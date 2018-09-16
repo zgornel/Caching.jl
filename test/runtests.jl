@@ -250,8 +250,31 @@ end
     @test buf == buf2  # sanity check
 end
 
+# Compression
+@testset "Compression" begin
+    files = ["somefile.bin",
+             "somefile.bin.gz",
+             "somefile.bin.gzip",
+             "somefile.bin.bz2",
+             "somefile.bin.bzip2",
+            ]
+    for _file in files
+        global foo(x) = x
+        dc = @eval @diskcache foo $_file
+        dc(1)
+        try
+            @persist! dc
+            @empty! dc true
+            @test true
+        catch
+            @test false
+        end
+    end
+end
+
+
 # show methods
-@testset "show" begin
+@testset "Show methods" begin
     buf = IOBuffer()
     foo(x) = x
     mc = @memcache foo

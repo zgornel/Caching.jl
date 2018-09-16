@@ -13,13 +13,15 @@ MemoryCache(dc::DiskCache) = deepcopy(dc.memcache)
 function _check_disk_cache(filename::String, offsets::D where D<:Dict,
                            input_type::Type, output_type::Type)::Bool
     fid = open(filename, "r")
+    _, decompressor = _get_transcoders(filename)
     try
         I = deserialize(fid)
         @assert I == input_type
         O = deserialize(fid)
         @assert O == output_type
         for (_, (startpos, endpos)) in offsets
-            _load_disk_cache_entry(fid, startpos)
+            _load_disk_cache_entry(fid, startpos, endpos,
+                                   decompressor=decompressor)
         end
         return true
     catch excep
@@ -39,14 +41,16 @@ function persist!(mc::MemoryCache{T, I, O}; filename::String=
     offsets = Dict{I, Tuple{Int, Int}}()
     _dir = join(split(filename, "/")[1:end-1], "/")
     !isempty(_dir) && !isdir(_dir) && mkdir(_dir)
+    compressor, _ = _get_transcoders(filename)
     # Write header
-    fid = open(filename, "w")  # overwrite/create file
+    fid = open(filename, "w")
     serialize(fid, I)
     serialize(fid, O)
     # Write data pairs
     for (_hash, datum) in _data
         startpos = position(fid)
-        endpos = _store_disk_cache_entry(fid, startpos, datum)
+        endpos = _store_disk_cache_entry(fid, startpos, datum,
+                                         compressor=compressor)
         push!(offsets, _hash=>(startpos, endpos))
     end
     close(fid)
@@ -128,15 +132,18 @@ function syncache!(dc::DiskCache{T, I, O};
         else  # cache_ok
             # At this point, the `offsets` dictionary should reflect
             # the structure of the file pointed at by the `filename` field
-            mode = ifelse(with == "both" || with == "memory", "a+", "r")
             memonly = setdiff(keys(dc.memcache.cache), keys(dc.offsets))
             diskonly = setdiff(keys(dc.offsets), keys(dc.memcache.cache))
+            mode = ifelse(with == "both" || with == "memory", "a+", "r")
+            compressor, decompressor = _get_transcoders(dc.filename)
             fid = open(dc.filename, mode)
             # Load from disk to memory
             if with != "memory"
                 for _hash in diskonly
                     startpos = dc.offsets[_hash][1]
-                    datum = _load_disk_cache_entry(fid, startpos)
+                    endpos = dc.offsets[_hash][2]
+                    datum = _load_disk_cache_entry(fid, startpos, endpos,
+                                                   decompressor=decompressor)
                     push!(dc.memcache.cache, _hash=>datum)
                 end
             end
@@ -145,7 +152,8 @@ function syncache!(dc::DiskCache{T, I, O};
                 for _hash in memonly
                     datum = dc.memcache.cache[_hash]
                     startpos = position(fid)
-                    endpos = _store_disk_cache_entry(fid, startpos, datum)
+                    endpos = _store_disk_cache_entry(fid, startpos, datum,
+                                                     compressor=compressor)
                     push!(dc.offsets, _hash=>(startpos, endpos))
                 end
             end

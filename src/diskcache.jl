@@ -38,32 +38,19 @@ show(io::IO, dc::DiskCache) = begin
 end
 
 
-# Function that retrieves one entry from a stream
-function _load_disk_cache_entry(io::T where T<:IO, pos::Int)
-    seek(io, pos)
-    datum = deserialize(io)
-    return datum
-end
-
-
-# Function that stores one entry to a stream
-function _store_disk_cache_entry(io::T where T<:IO, pos::Int, datum)
-    seek(io, pos)
-    serialize(io, datum)
-    return position(io)
-end
-
-
 # Call method (caches only to memory, caching to disk has to be explicit)
 (dc::DiskCache{T, I, O})(args...; kwargs...) where {T, I, O} = begin
     _hash = arghash(args...; kwargs...)
+    _, decompressor = _get_transcoders(dc.filename)
     if _hash in keys(dc.memcache.cache)
         return dc.memcache.cache[_hash]
     elseif _hash in keys(dc.offsets)
         @warn "Memory hash miss, loading hash=0x$(string(_hash, base=16))..."
-        fid = open(dc.filename)
+        fid = open(dc.filename, "r")
         startpos = dc.offsets[_hash][1]
-        datum = _load_disk_cache_entry(fid, startpos)
+        endpos = dc.offsets[_hash][2]
+        datum = _load_disk_cache_entry(fid, startpos, endpos,
+                                       decompressor=decompressor)
         close(fid)
         return datum::O
     else

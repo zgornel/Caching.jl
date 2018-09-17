@@ -40,7 +40,7 @@ function persist!(mc::MemoryCache{T, I, O}; filename::String=
     _data = mc.cache
     offsets = Dict{I, Tuple{Int, Int}}()
     _dir = join(split(filename, "/")[1:end-1], "/")
-    !isempty(_dir) && !isdir(_dir) && mkdir(_dir)
+    !isempty(_dir) && !isdir(_dir) && mkpath(_dir)
     compressor, _ = _get_transcoders(filename)
     # Write header
     fid = open(filename, "w")

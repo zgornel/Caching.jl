@@ -227,4 +227,4 @@ This code has an MIT license and therefore it is free.
 
 [2] https://en.wikipedia.org/wiki/Cache_replacement_policies
 
-For other caching solutions,  check out also [LRUCache.jl](https://github.com/JuliaCollections/LRUCache.jl), [Memoize.jl](https://github.com/simonster/Memoize.jl) and [Memoize.jl](https://github.com/colinfang/Memoize.jl) as well as [Anamnesis.jl](https://github.com/ExpandingMan/Anamnesis.jl)
+For other caching solutions,  check out also [LRUCache.jl](https://github.com/JuliaCollections/LRUCache.jl), [Memoize.jl](https://github.com/simonster/Memoize.jl) and [Anamnesis.jl](https://github.com/ExpandingMan/Anamnesis.jl)

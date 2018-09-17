@@ -12,21 +12,21 @@ MemoryCache(dc::DiskCache) = deepcopy(dc.memcache)
 # field value of the DiskCache object
 function _check_disk_cache(filename::String, offsets::D where D<:Dict,
                            input_type::Type, output_type::Type)::Bool
-    fid = open(filename, "r")
-    _, decompressor = _get_transcoders(filename)
-    try
-        I = deserialize(fid)
-        @assert I == input_type
-        O = deserialize(fid)
-        @assert O == output_type
-        for (_, (startpos, endpos)) in offsets
-            _load_disk_cache_entry(fid, startpos, endpos,
-                                   decompressor=decompressor)
+    open(filename, "r") do fid
+        _, decompressor = _get_transcoders(filename)
+        try
+            I = deserialize(fid)
+            @assert I == input_type
+            O = deserialize(fid)
+            @assert O == output_type
+            for (_, (startpos, endpos)) in offsets
+                _load_disk_cache_entry(fid, startpos, endpos,
+                                       decompressor=decompressor)
+            end
+            return true
+        catch excep
+            return false
         end
-        return true
-    catch excep
-        close(fid)
-        return false
     end
 end
 
@@ -40,20 +40,20 @@ function persist!(mc::MemoryCache{T, I, O}; filename::String=
     _data = mc.cache
     offsets = Dict{I, Tuple{Int, Int}}()
     _dir = join(split(filename, "/")[1:end-1], "/")
-    !isempty(_dir) && !isdir(_dir) && mkdir(_dir)
+    !isempty(_dir) && !isdir(_dir) && mkpath(_dir)
     compressor, _ = _get_transcoders(filename)
     # Write header
-    fid = open(filename, "w")
-    serialize(fid, I)
-    serialize(fid, O)
-    # Write data pairs
-    for (_hash, datum) in _data
-        startpos = position(fid)
-        endpos = _store_disk_cache_entry(fid, startpos, datum,
-                                         compressor=compressor)
-        push!(offsets, _hash=>(startpos, endpos))
+    open(filename, "w") do fid
+        serialize(fid, I)
+        serialize(fid, O)
+        # Write data pairs
+        for (_hash, datum) in _data
+            startpos = position(fid)
+            endpos = _store_disk_cache_entry(fid, startpos, datum,
+                                             compressor=compressor)
+            push!(offsets, _hash=>(startpos, endpos))
+        end
     end
-    close(fid)
     return abspath(filename), offsets
 end
 
@@ -136,28 +136,28 @@ function syncache!(dc::DiskCache{T, I, O};
             diskonly = setdiff(keys(dc.offsets), keys(dc.memcache.cache))
             mode = ifelse(with == "both" || with == "memory", "a+", "r")
             compressor, decompressor = _get_transcoders(dc.filename)
-            fid = open(dc.filename, mode)
-            # Load from disk to memory
-            if with != "memory"
-                for _hash in diskonly
-                    startpos = dc.offsets[_hash][1]
-                    endpos = dc.offsets[_hash][2]
-                    datum = _load_disk_cache_entry(fid, startpos, endpos,
-                                                   decompressor=decompressor)
-                    push!(dc.memcache.cache, _hash=>datum)
+            open(dc.filename, mode) do fid
+                # Load from disk to memory
+                if with != "memory"
+                    for _hash in diskonly
+                        startpos = dc.offsets[_hash][1]
+                        endpos = dc.offsets[_hash][2]
+                        datum = _load_disk_cache_entry(fid, startpos, endpos,
+                                                       decompressor=decompressor)
+                        push!(dc.memcache.cache, _hash=>datum)
+                    end
+                end
+                # Write memory to disk and update offsets
+                if with != "disk"
+                    for _hash in memonly
+                        datum = dc.memcache.cache[_hash]
+                        startpos = position(fid)
+                        endpos = _store_disk_cache_entry(fid, startpos, datum,
+                                                         compressor=compressor)
+                        push!(dc.offsets, _hash=>(startpos, endpos))
+                    end
                 end
             end
-            # Write memory to disk and update offsets
-            if with != "disk"
-                for _hash in memonly
-                    datum = dc.memcache.cache[_hash]
-                    startpos = position(fid)
-                    endpos = _store_disk_cache_entry(fid, startpos, datum,
-                                                     compressor=compressor)
-                    push!(dc.offsets, _hash=>(startpos, endpos))
-                end
-            end
-            close(fid)
         end
     end
     return dc

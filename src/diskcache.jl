@@ -46,13 +46,13 @@ end
         return dc.memcache.cache[_hash]
     elseif _hash in keys(dc.offsets)
         @warn "Memory hash miss, loading hash=0x$(string(_hash, base=16))..."
-        fid = open(dc.filename, "r")
-        startpos = dc.offsets[_hash][1]
-        endpos = dc.offsets[_hash][2]
-        datum = _load_disk_cache_entry(fid, startpos, endpos,
-                                       decompressor=decompressor)
-        close(fid)
-        return datum::O
+        open(dc.filename, "r") do fid
+            startpos = dc.offsets[_hash][1]
+            endpos = dc.offsets[_hash][2]
+            datum = _load_disk_cache_entry(fid, startpos, endpos,
+                                           decompressor=decompressor)
+            return datum::O
+        end
     else
         return dc.memcache(args...; kwargs...)
     end

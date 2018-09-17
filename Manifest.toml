@@ -26,7 +26,7 @@ uuid = "523fee87-0ab8-5b00-afb7-3ecf72e48cfd"
 version = "0.5.0"
 
 [[CodecLz4]]
-deps = ["BinDeps", "Compat", "TranscodingStreams"]
+deps = ["BinDeps", "Compat", "Libdl", "TranscodingStreams"]
 git-tree-sha1 = "ab4cd235e5fa915353b3349509f56ee03cd0cfec"
 repo-rev = "master"
 repo-url = "https://github.com/invenia/CodecLz4.jl.git"

@@ -7,7 +7,7 @@ module Caching
 using Random
 using Serialization
 using TranscodingStreams
-using CodecZlib, CodecBzip2, CodecLz4
+using CodecZlib, CodecBzip2
 import Base: show, empty!
 
 abstract type AbstractCache end

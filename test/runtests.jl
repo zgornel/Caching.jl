@@ -261,14 +261,17 @@ end
     for _file in files
         global foo(x) = x
         dc = @eval @diskcache foo $_file
-        dc(1)
+        data = [1,2,3]
+        dc(data)
+        @persist! dc
+        @empty! dc
         try
-            @persist! dc
-            @empty! dc true
+            @test dc(data) == foo(data)
             @test true
         catch
             @test false
         end
+        @empty! dc true
     end
 end
 

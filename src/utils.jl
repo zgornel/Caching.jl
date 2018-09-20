@@ -33,7 +33,6 @@ end
 
 # Function that dumps the MemoryCache cache to disk
 # and returns the filename and offsets dictionary
-# TODO(Corneliu): Add compression support
 function persist!(mc::MemoryCache{T, I, O}; filename::String=
                   _generate_cache_filename(mc.name)) where {T, I, O}
     # Initialize structures

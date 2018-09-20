@@ -4,21 +4,22 @@ function _load_disk_cache_entry(io::IO, pos_start::Int, pos_end::Int;
     seek(io, pos_start)
     cbuf = read(io, pos_end-pos_start)
     buf = transcode(decompressor, cbuf)
-    datum = deserialize(IOBuffer(cbuf))
+    datum = deserialize(IOBuffer(buf))
     return datum
 end
 
 
 # Function that stores one entry to a stream
-function _store_disk_cache_entry(io::IO, pos::Int, datum;
+function _store_disk_cache_entry(io::IO, pos_start::Int, datum;
                                  compressor=Noop)
-    seek(io, pos)
+    seek(io, pos_start)
     buf = IOBuffer()
     serialize(buf, datum)
     posbuf = position(buf)
     cbuf = transcode(compressor, buf.data[1:posbuf])
     write(io, cbuf)
-    return position(io)
+    pos_end = position(io)
+    return pos_end
 end
 
 

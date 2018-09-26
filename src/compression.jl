@@ -1,6 +1,6 @@
 # Function that retrieves one entry from a stream
-function _load_disk_cache_entry(io::IO, pos_start::Int, pos_end::Int;
-                                decompressor=Noop)
+function load_disk_cache_entry(io::IO, pos_start::Int, pos_end::Int;
+                               decompressor=Noop)
     seek(io, pos_start)
     cbuf = read(io, pos_end-pos_start)
     buf = transcode(decompressor, cbuf)
@@ -10,8 +10,8 @@ end
 
 
 # Function that stores one entry to a stream
-function _store_disk_cache_entry(io::IO, pos_start::Int, datum;
-                                 compressor=Noop)
+function store_disk_cache_entry(io::IO, pos_start::Int, datum;
+                                compressor=Noop)
     seek(io, pos_start)
     buf = IOBuffer()
     serialize(buf, datum)
@@ -23,7 +23,7 @@ function _store_disk_cache_entry(io::IO, pos_start::Int, datum;
 end
 
 
-function _get_transcoders(filename::T="") where T<:AbstractString
+function get_transcoders(filename::T="") where T<:AbstractString
     ext = split(filename, ".")[end]
     if ext == "bz2" || ext == "bzip2"
         compressor = Bzip2Compressor

@@ -1,27 +1,17 @@
-# Convert MemoryCache to DiskCache (constructor)
-DiskCache(mc::MemoryCache{T, I, O};
-		  filename::String = _generate_cache_filename(mc.name)) where {T, I, O} =
-    DiskCache(filename, deepcopy(mc), Dict{I, Tuple{Int, Int}}())
-
-
-# Convert DiskCache to MemoryCache (constructor)
-MemoryCache(dc::DiskCache) = deepcopy(dc.memcache)
-
-
-# Function that checks the consistency of the disk cache and `offset`
-# field value of the DiskCache object
+# Function that checks the consistency of the cache and `offset`
+# field value of the Cache object
 function _check_disk_cache(filename::String, offsets::D where D<:Dict,
                            input_type::Type, output_type::Type)::Bool
     open(filename, "r") do fid
-        _, decompressor = _get_transcoders(filename)
+        _, decompressor = get_transcoders(filename)
         try
             I = deserialize(fid)
             @assert I == input_type
             O = deserialize(fid)
             @assert O == output_type
             for (_, (startpos, endpos)) in offsets
-                _load_disk_cache_entry(fid, startpos, endpos,
-                                       decompressor=decompressor)
+                load_disk_cache_entry(fid, startpos, endpos,
+                                      decompressor=decompressor)
             end
             return true
         catch excep
@@ -31,65 +21,54 @@ function _check_disk_cache(filename::String, offsets::D where D<:Dict,
 end
 
 
-# Function that dumps the MemoryCache cache to disk
+
+# Function that dumps the whole Cache cache to disk
 # and returns the filename and offsets dictionary
-function persist!(mc::MemoryCache{T, I, O}; filename::String=
-                  _generate_cache_filename(mc.name)) where {T, I, O}
+function persist!(cache::Cache{T, I, O}, filename::String=cache.filename) where {T, I, O}
     # Initialize structures
-    _data = mc.cache
-    offsets = Dict{I, Tuple{Int, Int}}()
+    _data = cache.cache
+    cache.offsets = Dict{I, Tuple{Int, Int}}()
     _dir = join(split(filename, "/")[1:end-1], "/")
     !isempty(_dir) && !isdir(_dir) && mkpath(_dir)
-    compressor, _ = _get_transcoders(filename)
+    compressor, _ = get_transcoders(filename)
     # Write header
-    open(filename, "w") do fid
+    cache.filename = abspath(filename)
+    open(cache.filename, "w") do fid
         serialize(fid, I)
         serialize(fid, O)
         # Write data pairs
         for (_hash, datum) in _data
             startpos = position(fid)
-            endpos = _store_disk_cache_entry(fid, startpos, datum,
-                                             compressor=compressor)
-            push!(offsets, _hash=>(startpos, endpos))
+            endpos = store_disk_cache_entry(fid, startpos, datum,
+                                            compressor=compressor)
+            push!(cache.offsets, _hash=>(startpos, endpos))
         end
     end
-    return abspath(filename), offsets
+    return cache
 end
 
-
-# Function that dumps the DiskCache memory component to disk
-# and updates the offsets dictionary
-function persist!(dc::T; filename::String=dc.filename) where T<:DiskCache
-    dc.filename, dc.offsets = persist!(dc.memcache, filename=filename)
-    return dc
-end
 
 
 macro persist!(symb::Symbol, filename::String...)
     if isempty(filename)
         return esc(:(persist!($symb)))
     else
-        return esc(:(persist!($symb, filename=$(filename[1]))))
+        return esc(:(persist!($symb, $(filename[1]))))
     end
 end
 
-
-# Erases the memory cache
-function empty!(mc::MemoryCache; empty_disk::Bool=false)
-    empty!(mc.cache)
-    return mc
-end
 
 
 # Erases the memory and possibly the disk cache
-function empty!(dc::DiskCache; empty_disk::Bool=false)
-    empty!(dc.memcache)     # remove memory cache
+function empty!(cache::Cache; empty_disk::Bool=false)
+    empty!(cache.cache)     # remove memory cache
     if empty_disk           # remove offset structure and the file
-        empty!(dc.offsets)
-        isfile(dc.filename) && rm(dc.filename, recursive=true, force=true)
+        empty!(cache.offsets)
+        isfile(cache.filename) && rm(cache.filename, recursive=true, force=true)
     end
-    return dc
+    return cache
 end
+
 
 
 macro empty!(symb::Symbol, empty_disk::Bool=false)
@@ -101,66 +80,67 @@ end
 #   "both" - memory and disk concents are combined, memory values update disk
 #   "disk" - memory cache contents are updated with disk ones
 #   "memory" - disk cache contents are updated with memory ones
-function syncache!(dc::DiskCache{T, I, O};
+function syncache!(cache::Cache{T, I, O};
                    with::String="both") where {T, I, O}
     # Check keyword argument values, correct unknown values
     _default_with = "both"
-    noff = length(dc.offsets)
+    noff = length(cache.offsets)
     !(with in ["disk", "memory", "both"]) && begin
         @warn "Unrecognized value with=$with, defaulting to $_default_with."
         with = _default_with
     end
 
     # Cache synchronization
-    if !isfile(dc.filename)
+    if !isfile(cache.filename)
         if with == "both" || with == "memory"
             noff != 0 && @warn "Missing cache file, will write memory cache to disk."
-            persist!(dc)
+            persist!(cache)
         else
             @warn "Missing cache file, will delete all cache."
-            empty!(dc)
+            empty!(cache)
         end
     else
-        cache_ok = _check_disk_cache(dc.filename, dc.offsets, I, O)
+        cache_ok = _check_disk_cache(cache.filename, cache.offsets, I, O)
         if !cache_ok && with != "disk"
             @warn "Inconsistent cache, overwriting disk contents."
-            persist!(dc)
+            persist!(cache)
         elseif !cache_ok && with == "disk"
             @warn "Inconsistent cache, will delete all cache."
-            empty!(dc, empty_disk=true)
+            empty!(cache, empty_disk=true)
         else  # cache_ok
             # At this point, the `offsets` dictionary should reflect
             # the structure of the file pointed at by the `filename` field
-            memonly = setdiff(keys(dc.memcache.cache), keys(dc.offsets))
-            diskonly = setdiff(keys(dc.offsets), keys(dc.memcache.cache))
+            memonly = setdiff(keys(cache.cache), keys(cache.offsets))
+            diskonly = setdiff(keys(cache.offsets), keys(cache.cache))
             mode = ifelse(with == "both" || with == "memory", "a+", "r")
-            compressor, decompressor = _get_transcoders(dc.filename)
-            open(dc.filename, mode) do fid
+            compressor, decompressor = get_transcoders(cache.filename)
+            open(cache.filename, mode) do fid
                 # Load from disk to memory
                 if with != "memory"
                     for _hash in diskonly
-                        startpos = dc.offsets[_hash][1]
-                        endpos = dc.offsets[_hash][2]
-                        datum = _load_disk_cache_entry(fid, startpos, endpos,
-                                                       decompressor=decompressor)
-                        push!(dc.memcache.cache, _hash=>datum)
+                        startpos = cache.offsets[_hash][1]
+                        endpos = cache.offsets[_hash][2]
+                        datum = load_disk_cache_entry(fid, startpos, endpos,
+                                                      decompressor=decompressor)
+                        push!(cache.cache, _hash=>datum)
                     end
                 end
                 # Write memory to disk and update offsets
                 if with != "disk"
                     for _hash in memonly
-                        datum = dc.memcache.cache[_hash]
+                        datum = cache.cache[_hash]
                         startpos = position(fid)
-                        endpos = _store_disk_cache_entry(fid, startpos, datum,
-                                                         compressor=compressor)
-                        push!(dc.offsets, _hash=>(startpos, endpos))
+                        endpos = store_disk_cache_entry(fid, startpos, datum,
+                                                        compressor=compressor)
+                        push!(cache.offsets, _hash=>(startpos, endpos))
                     end
                 end
             end
         end
     end
-    return dc
+    return cache
 end
+
 
 
 macro syncache!(symb::Symbol, with::String="both")

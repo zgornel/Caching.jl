@@ -8,25 +8,24 @@ using Random
 using Serialization
 using TranscodingStreams
 using CodecZlib, CodecBzip2
+
 import Base: show, empty!
+import Core.Compiler: return_type
 
 abstract type AbstractCache end
 
 export AbstractCache,
-    arghash,
-    MemoryCache,
-    DiskCache,
-    syncache!,
-    persist!,
-    empty!,
-    @diskcache,
-    @memcache,
-    @syncache!,
-    @persist!,
-    @empty!
+       Cache,
+       arghash,
+       syncache!,
+       persist!,
+       empty!,
+       @cache,
+       @syncache!,
+       @persist!,
+       @empty!
 
-    include("memcache.jl")
-    include("diskcache.jl")
+    include("cache.jl")
     include("hash.jl")
     include("utils.jl")
     include("compression.jl")

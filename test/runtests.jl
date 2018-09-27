@@ -189,6 +189,30 @@ end
 end
 
 
+# Size constraints 
+@testset "Size constraints" begin
+    file = "somefile.bin"
+    foo(x) = x
+    dc = @eval @cache foo $file 3  # 3 objects max
+    dc(1)
+    dc(2)
+    dc(3)
+    #--> Cache is full
+    dc(4)  #--> 1 is removed
+    @test !(1 in values(dc.cache)) &&
+        all(i in values(dc.cache) for i in 2:4)
+    @persist! dc
+    @empty! dc
+    for i in 5:6 dc(i) end
+    #--> 2,3,4 on disk, 5,6 in memory
+    @syncache! dc #--> brings 4 in memory and 5,6 on disk
+    @test all(i in values(dc.cache) for i in 4:6)
+    @test length(dc) == 3 # sanity check
+    @empty! dc  #--> nothing in memory
+    @syncache! dc "disk"  #--> load from disk max entries i.e. 3
+    @test all(i in values(dc.cache) for i in 4:6)
+    @empty! dc true  # remove everything
+end
 # show methods
 @testset "Show methods" begin
     buf = IOBuffer()

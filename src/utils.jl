@@ -123,9 +123,10 @@ function syncache!(cache::Cache{T, I, O, S}; with::String="both") where
                              by=x->x[2][1], rev=true)
             # Write
             load_cnt = 0
+            memory_full = false
             open(cache.filename, mode) do fid
-                # Load **randomly** from disk as many entries as possible
-                # as long as the maximum size is not reached
+                # Load from disk as many entries as possible (starting with the most 
+                # recently saved, as long as the maximum size is not reached
                 if with != "memory"
                     for (_hash, (startpos, endpos)) in diskorder
                         datum = load_disk_cache_entry(fid, startpos, endpos,
@@ -137,10 +138,12 @@ function syncache!(cache::Cache{T, I, O, S}; with::String="both") where
                             pushfirst!(cache.history, _hash)
                             load_cnt += 1
                         else
-                            @warn "Memory cache full ($(object_size(cache))), " *
-                            "loaded $load_cnt out of $(length(diskorder)) entries."
+                            memory_full = true
+                            break
                         end
                     end
+                    memory_full && @warn "Memory cache full, loaded $load_cnt" *
+                                         " out of $(length(diskorder)) entries."
                 end
                 # Write memory to disk and update offsets;
                 # size restrictions do not matter in this case

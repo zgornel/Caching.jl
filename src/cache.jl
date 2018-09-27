@@ -2,11 +2,11 @@
 abstract type AbstractSize end
 
 struct CountSize <: AbstractSize
-    val::Int
+    val::Int  # objects
 end
 
-struct MemorySize<:AbstractSize
-    val::Int
+struct MemorySize <: AbstractSize
+    val::Int  # bytes
 end
 
 
@@ -14,19 +14,23 @@ end
 show(io::IO, sz::CountSize) =
     sz.val == 1 ? print(io, "1 object") : print(io, "$(sz.val) objects")
 
-show(io::IO, sz::MemorySize) =
-    sz.val == 1 ? print(io, "1 byte") : print(io, "$(sz.val) bytes")
+show(io::IO, sz::MemorySize) = print(io, "$(sz.val/1024) KiB")
 
 
 
 object_size(dd::Dict, ::Type{CountSize}) = length(dd)
+
 object_size(dd::Dict, ::Type{MemorySize}) = Base.summarysize(values(dd))
+
 object_size(object, ::Type{CountSize}) = 1
+
 object_size(object, ::Type{MemorySize}) = Base.summarysize(object)
 
 
 
 # Cache struct
+abstract type AbstractCache end
+
 mutable struct Cache{T<:Function, I<:Unsigned, O, S<:AbstractSize} <: AbstractCache
     name::String                        # name of the object
     filename::String                    # file name
@@ -48,7 +52,6 @@ end
 
 
 # Overload constructor
-MAX_CACHE_SIZE = 300
 Cache(f::T where T<:Function;
       name::String = string(f),
 	  filename::String = generate_cache_filename(name),
@@ -140,13 +143,20 @@ end
 # Macro supporting construnctions of the form:
 # 	julia> foo(x) = x+1
 # 	julia> fooc = @cache foo # now `fooc` is the cached version of `foo`
-macro cache(symb::Symbol, filename::String=generate_cache_filename(string(symb)))
+macro cache(symb::Symbol, filename::String=generate_cache_filename(string(symb)),
+            max_size::Number=MAX_CACHE_SIZE)
     _name = String(symb)
+    @assert max_size > 0 "The maximum size has to be > 0 (objects or KiB)."
+    if max_size isa Int
+        _max_size = CountSize(max_size)
+    elseif max_size isa Real
+        _max_size = MemorySize(max_size*1024)
+    else
+        @error "The maximum size has to be an Int or a Float64."
+    end
     ex = quote
         try
-            Cache($symb,
-                      name=$_name,
-                      filename=$filename)
+            Cache($symb, name=$_name, filename=$filename, max_size=$_max_size)
         catch excep
             @error "Could not create Cache. $excep"
         end
@@ -159,26 +169,36 @@ end  # macro
 # Macro supporting constructions of the form:
 # 	julia> foo(x) = x+1
 # 	julia> fooc = @cache foo::Int  # expects output to be `Int`
-macro cache(expr::Expr, filename::String=generate_cache_filename(string(expr.args[1])))
+macro cache(expr::Expr,
+            filename::String=generate_cache_filename(string(expr.args[1])),
+            max_size::Number=MAX_CACHE_SIZE)
+    # Parse
 	@assert expr.head == :(::)
 	@assert length(expr.args) == 2  # two arguments
 	_symb = expr.args[1]
 	_typesymbol = expr.args[2]
 	_type = eval(_typesymbol)
 	_name = String(_symb)
-
-	try
+	
+    try
         @assert _type isa Type
 	catch  # it may be a variable containing a type
         @error "The right-hand argument of `::` is not a type."
 	end
 
-	ex = quote
+    @assert max_size > 0 "The maximum size has to be > 0 (objects or KiB)."
+    if max_size isa Int
+        _max_size = CountSize(max_size)
+    elseif max_size isa Real
+        _max_size = MemorySize(max_size*1024)
+    else
+        @error "The maximum size has to be an Int or a Float64."
+    end
+	
+    ex = quote
         try
-            Cache($_symb,
-                      name=$_name,
-                      filename=$filename,
-                      output_type=$_type)
+            Cache($_symb, name=$_name, filename=$filename, output_type=$_type,
+                 max_size=$_max_size)
         catch excep
             @error "Could not create Cache. $excep"
         end

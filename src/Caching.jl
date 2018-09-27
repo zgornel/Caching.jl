@@ -8,8 +8,9 @@ using Random
 using Serialization
 using TranscodingStreams
 using CodecZlib, CodecBzip2
+using DataStructures
 
-import Base: show, empty!
+import Base: show, empty!, length
 import Core.Compiler: return_type
 
 abstract type AbstractCache end

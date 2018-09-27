@@ -22,12 +22,13 @@ end
 
 
 
-# Function that dumps the whole Cache cache to disk
-# and returns the filename and offsets dictionary
-function persist!(cache::Cache{T, I, O}, filename::String=cache.filename) where {T, I, O}
+# Function that dumps the whole Cache cache to disk overwriting any
+# existing cache; returns the cache with a new disk cache information
+# i.e. offsets member
+function persist!(cache::Cache{T, I, O,S}, filename::String=cache.filename) where
+        {T<:Function, I<:Unsigned, O, S<:AbstractSize}
     # Initialize structures
-    _data = cache.cache
-    cache.offsets = Dict{I, Tuple{Int, Int}}()
+    empty!(cache.offsets)
     _dir = join(split(filename, "/")[1:end-1], "/")
     !isempty(_dir) && !isdir(_dir) && mkpath(_dir)
     compressor, _ = get_transcoders(filename)
@@ -36,10 +37,10 @@ function persist!(cache::Cache{T, I, O}, filename::String=cache.filename) where 
     open(cache.filename, "w") do fid
         serialize(fid, I)
         serialize(fid, O)
-        # Write data pairs
-        for (_hash, datum) in _data
+        # Write data pairs (starting with the oldest)
+        for _hash in cache.history
             startpos = position(fid)
-            endpos = store_disk_cache_entry(fid, startpos, datum,
+            endpos = store_disk_cache_entry(fid, startpos, cache.cache[_hash],
                                             compressor=compressor)
             push!(cache.offsets, _hash=>(startpos, endpos))
         end
@@ -62,6 +63,7 @@ end
 # Erases the memory and possibly the disk cache
 function empty!(cache::Cache; empty_disk::Bool=false)
     empty!(cache.cache)     # remove memory cache
+    empty!(cache.history)   # remove the history of the entries
     if empty_disk           # remove offset structure and the file
         empty!(cache.offsets)
         isfile(cache.filename) && rm(cache.filename, recursive=true, force=true)
@@ -80,8 +82,8 @@ end
 #   "both" - memory and disk concents are combined, memory values update disk
 #   "disk" - memory cache contents are updated with disk ones
 #   "memory" - disk cache contents are updated with memory ones
-function syncache!(cache::Cache{T, I, O};
-                   with::String="both") where {T, I, O}
+function syncache!(cache::Cache{T, I, O, S}; with::String="both") where
+        {T<:Function, I<:Unsigned, O, S<:AbstractSize}
     # Check keyword argument values, correct unknown values
     _default_with = "both"
     noff = length(cache.offsets)
@@ -93,41 +95,58 @@ function syncache!(cache::Cache{T, I, O};
     # Cache synchronization
     if !isfile(cache.filename)
         if with == "both" || with == "memory"
-            noff != 0 && @warn "Missing cache file, will write memory cache to disk."
+            noff != 0 &&
+                @warn "Missing cache file, persisting $(cache.filename)..."
             persist!(cache)
         else
-            @warn "Missing cache file, will delete all cache."
+            @warn "Missing cache file, creating $(cache.filename)..."
             empty!(cache)
         end
     else
         cache_ok = _check_disk_cache(cache.filename, cache.offsets, I, O)
         if !cache_ok && with != "disk"
-            @warn "Inconsistent cache, overwriting disk contents."
+            @warn "Inconsistent cache file, overwriting $(cache.filename)..."
             persist!(cache)
         elseif !cache_ok && with == "disk"
-            @warn "Inconsistent cache, will delete all cache."
-            empty!(cache, empty_disk=true)
+            @warn "Inconsistent cache file, deleting $(cache.filename)..."
+            rm(cache.filename, recursive=true, force=true)
         else  # cache_ok
             # At this point, the `offsets` dictionary should reflect
             # the structure of the file pointed at by the `filename` field
-            memonly = setdiff(keys(cache.cache), keys(cache.offsets))
-            diskonly = setdiff(keys(cache.offsets), keys(cache.cache))
+            memonly = setdiff(cache.history, keys(cache.offsets))
+            diskonly = setdiff(keys(cache.offsets), cache.history)
             mode = ifelse(with == "both" || with == "memory", "a+", "r")
             compressor, decompressor = get_transcoders(cache.filename)
+            # Sort the entries to be loaded from disk from the latest
+            # (large starting offset) to the oldest (small starting offset)
+            diskorder = sort([h=>off for (h, off) in cache.offsets if h in diskonly],
+                             by=x->x[2][1], rev=true)
+            # Write
+            load_cnt = 0
             open(cache.filename, mode) do fid
-                # Load from disk to memory
+                # Load **randomly** from disk as many entries as possible
+                # as long as the maximum size is not reached
                 if with != "memory"
-                    for _hash in diskonly
-                        startpos = cache.offsets[_hash][1]
-                        endpos = cache.offsets[_hash][2]
+                    for (_hash, (startpos, endpos)) in diskorder
                         datum = load_disk_cache_entry(fid, startpos, endpos,
                                                       decompressor=decompressor)
-                        push!(cache.cache, _hash=>datum)
+                        # Check size and update cache and history, adding
+                        # as the oldest entries those on disk
+                        if object_size(cache) + object_size(datum, S) <= max_cache_size(cache)
+                            push!(cache.cache, _hash=>datum)
+                            pushfirst!(cache.history, _hash)
+                            load_cnt += 1
+                        else
+                            @warn "Memory cache full ($(object_size(cache))), " *
+                            "loaded $load_cnt out of $(length(diskorder)) entries."
+                        end
                     end
                 end
-                # Write memory to disk and update offsets
+                # Write memory to disk and update offsets;
+                # size restrictions do not matter in this case
                 if with != "disk"
-                    for _hash in memonly
+                    seekend(fid)
+                    for _hash in memonly # `memonly` already sorted
                         datum = cache.cache[_hash]
                         startpos = position(fid)
                         endpos = store_disk_cache_entry(fid, startpos, datum,

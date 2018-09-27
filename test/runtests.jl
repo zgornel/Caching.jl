@@ -3,6 +3,7 @@ using Random
 using Caching
 
 
+
 # Test Cache, @cache
 @testset "Cache" begin
     # Function arguments
@@ -78,6 +79,7 @@ using Caching
 end
 
 
+
 # syncache!, @syncache!
 @testset "syncache!, @syncache!" begin
     # Define functions
@@ -116,6 +118,7 @@ end
 end
 
 
+
 # empty!, @empty!
 @testset "empty!, @empty!" begin
     # Define functions
@@ -132,6 +135,7 @@ end
     @test isempty(dc.offsets)
     @test !isfile("somefile.bin")
 end
+
 
 
 # persist!, @persist!
@@ -163,6 +167,7 @@ end
 end
 
 
+
 # Compression
 @testset "Compression" begin
     files = ["somefile.bin",
@@ -189,8 +194,9 @@ end
 end
 
 
-# Size constraints 
-@testset "Size constraints" begin
+
+# Size constraints
+@testset "Size constraints: number of objects" begin
     file = "somefile.bin"
     foo(x) = x
     dc = @eval @cache foo $file 3  # 3 objects max
@@ -213,6 +219,31 @@ end
     @test all(i in values(dc.cache) for i in 4:6)
     @empty! dc true  # remove everything
 end
+
+@testset "Size constraints: bytes of memory" begin
+    file = "somefile.bin"
+    foo(x) = x
+    dc = @eval @cache foo $file 1.0  # 1024 bytes=1.0 KiB max
+    for i in 1:128 dc(i) end
+    #--> Cache is full (128 x 8bytes/number=1024 bytes)
+    dc(129)  #--> 1 is removed
+    @test !(1 in values(dc.cache)) &&
+        all(i in values(dc.cache) for i in 2:129)
+    @persist! dc
+    @empty! dc  #--> 2,...,129 on disk, nothing in memory
+    for i in 130:130+126 dc(i) end  # write 127 entries
+    #--> 130,..,256 in memory, 2,...,129 on disk
+    @syncache! dc #--> brings 129 in memory and 130,...,256 on disk
+    @test all(i in values(dc.cache) for i in 129:130+126)
+    @test length(dc) == 128 # sanity check
+    @empty! dc  #--> nothing in memory
+    @syncache! dc "disk"  #--> load from disk max entries i.e. 128
+    @test all(i in values(dc.cache) for i in 129:130+126)
+    @empty! dc true  # remove everything
+end
+
+
+
 # show methods
 @testset "Show methods" begin
     buf = IOBuffer()

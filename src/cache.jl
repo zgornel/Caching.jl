@@ -20,11 +20,12 @@ show(io::IO, sz::MemorySize) = print(io, "$(sz.val/1024) KiB")
 
 object_size(dd::Dict, ::Type{CountSize}) = length(dd)
 
-object_size(dd::Dict, ::Type{MemorySize}) = Base.summarysize(values(dd))
+object_size(dd::Dict, ::Type{MemorySize}) =
+    isempty(dd) ? 0 : mapreduce(x->summarysize(x), +, values(dd))
 
 object_size(object, ::Type{CountSize}) = 1
 
-object_size(object, ::Type{MemorySize}) = Base.summarysize(object)
+object_size(object, ::Type{MemorySize}) = summarysize(object)
 
 
 
@@ -179,7 +180,7 @@ macro cache(expr::Expr,
 	_typesymbol = expr.args[2]
 	_type = eval(_typesymbol)
 	_name = String(_symb)
-	
+
     try
         @assert _type isa Type
 	catch  # it may be a variable containing a type
@@ -194,7 +195,7 @@ macro cache(expr::Expr,
     else
         @error "The maximum size has to be an Int or a Float64."
     end
-	
+
     ex = quote
         try
             Cache($_symb, name=$_name, filename=$filename, output_type=$_type,

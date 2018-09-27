@@ -9,6 +9,7 @@ using Serialization
 using TranscodingStreams
 using CodecZlib, CodecBzip2
 using DataStructures
+using Base: summarysize
 
 import Base: show, empty!, length
 import Core.Compiler: return_type

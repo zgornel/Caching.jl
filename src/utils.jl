@@ -125,7 +125,7 @@ function syncache!(cache::Cache{T, I, O, S}; with::String="both") where
             load_cnt = 0
             memory_full = false
             open(cache.filename, mode) do fid
-                # Load from disk as many entries as possible (starting with the most 
+                # Load from disk as many entries as possible (starting with the most
                 # recently saved, as long as the maximum size is not reached
                 if with != "memory"
                     for (_hash, (startpos, endpos)) in diskorder

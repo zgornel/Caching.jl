@@ -115,7 +115,7 @@ function (cache::Cache{T, I, O, S})(args...; kwargs...) where
             if !(typeof(datum) <: O)
                 throw(AssertionError("Output type is not a subtype $O"))
             end
-            return datum
+            return datum::O
         end
     else
         # A hash miss: a new value must be cached. This requires a check
@@ -126,7 +126,7 @@ function (cache::Cache{T, I, O, S})(args...; kwargs...) where
         if !(return_type(cache.func, typeof.(args)) <: O)
             throw(AssertionError("Output type is not a subtype $O"))
         end
-        out = cache.func(args...; kwargs...)
+        out::O = cache.func(args...; kwargs...)
         while object_size(cache) + object_size(out, S) > max_cache_size(cache)
             delete!(cache.cache, popfirst!(cache.history))
         end

@@ -6,8 +6,8 @@ end
 
 
 # Function that generates a name based on the name of the cached function
-function generate_cache_filename(fname::String)
-    _filename = "_" * string(hash(fname), base=16) * "_.bin"
+function generate_cache_filename()
+    _filename = "_" * string(hash(rand()), base=16) * "_.bin"
     return abspath(_filename)
 end
 

@@ -245,6 +245,30 @@ end
 end
 
 
+
+@testset "@cache <func. def.>" begin
+    @test !@isdefined foo
+    @cache foo=x->x
+    @test @isdefined foo
+    @test typeof(foo.cache) == Dict{UInt,Any}
+    @test foo(1) == 1
+
+    T = Int
+    @test !@isdefined bar
+    @eval @cache bar=x::$T->x
+    @test @isdefined bar
+    @eval @test typeof(bar.cache) == Dict{UInt,$T}
+    @test bar(1) == 1
+
+    @test !@isdefined baz
+    @eval @cache function baz(x)::$T x end
+    @test @isdefined baz
+    @eval @test typeof(baz.cache) == Dict{UInt,$T}
+    @test baz(1) == 1
+end
+
+
+
 # Hashing function
 struct custom_type{T}
     x::T

@@ -4,11 +4,12 @@
 #################################################################
 module Caching
 
-using Random
 using Serialization
+using DataStructures
 using TranscodingStreams
 using CodecZlib, CodecBzip2
-using DataStructures
+using MacroTools
+using Random
 using Base: summarysize
 
 import Base: show, empty!, length

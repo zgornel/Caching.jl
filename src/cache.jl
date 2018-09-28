@@ -47,7 +47,7 @@ end
 # Overload constructor
 Cache(f::T where T<:Function;
       name::String = string(f),
-	  filename::String = generate_cache_filename(name),
+	  filename::String = generate_cache_filename(),
 	  output_type::Type=Any,
       max_size::S=CountSize(MAX_CACHE_SIZE)) where {F<:Function, S<:AbstractSize} =
     # The main constructor call (separating comment ;)
@@ -136,9 +136,8 @@ end
 # Macro supporting construnctions of the form:
 # 	julia> foo(x) = x+1
 # 	julia> fooc = @cache foo # now `fooc` is the cached version of `foo`
-macro cache(symb::Symbol, filename::String=generate_cache_filename(string(symb)),
-            max_size::Number=MAX_CACHE_SIZE)
-    _name = String(symb)
+macro cache(expression, filename::String=generate_cache_filename(), max_size::Number=MAX_CACHE_SIZE)
+    # Check size, no need to check the filename
     @assert max_size > 0 "The maximum size has to be > 0 (objects or KiB)."
     if max_size isa Int
         _max_size = CountSize(max_size)
@@ -147,53 +146,74 @@ macro cache(symb::Symbol, filename::String=generate_cache_filename(string(symb))
     else
         @error "The maximum size has to be an Int or a Float64."
     end
-    ex = quote
-        try
-            Cache($symb, name=$_name, filename=$filename, max_size=$_max_size)
-        catch excep
-            @error "Could not create Cache. $excep"
+
+    # Parse macro input
+    if expression isa Symbol
+        #######################
+        # julia> @cache foo   #-> foo remains a function, new Cache object returned
+        #######################
+        _name = String(expression)
+        ex = quote
+                Cache($expression, name=$_name, filename=$filename, max_size=$_max_size)
         end
-    end
-    return esc(ex)
-end  # macro
+    elseif expression isa Expr && expression.head == :(::) && length(expression.args) == 2
+        ############################
+        # julia> @cache foo::Int   #-> foo remains a function, new Cache object returned
+        ############################
+        _symb = expression.args[1]
+        _typesymbol = expression.args[2]
+        _type = eval(_typesymbol)
+        _name = String(_symb)
+        @assert _type isa Type "The right-hand argument of `::` is not a type."
+        ex = quote
+                Cache($_symb, name=$_name,
+                      filename=$filename,
+                      output_type=$_type,
+                     max_size=$_max_size)
+        end
+    elseif expression isa Expr && expression.head == :(=)
+        #############################
+        # julia> @cache foo=x->x+1  #-> foo becomes a Caching.Cache object
+        #############################
+        f_output_type = Any
+        if @capture(expression, f_name_ = arg_::input_type_->body_)
+            if input_type == nothing
+                input_type = Any
+            end
+        elseif @capture(expression, f_name_ = arg_->body_)
+            input_type = Any
+        else
+            @error "Only one input argument lambdas are supported."
+        end
+        new_expression = :(($arg::$input_type)->$body)
+        _func = eval(new_expression)
+        _t = eval(input_type)
+        ex = quote
+            $f_name = Caching.Cache(eval($new_expression),
+                                    name=$(string(f_name)),
+                                    output_type=Core.Compiler.return_type($_func,($_t,)),
+                                    max_size=$_max_size)
+        end
 
-
-
-# Macro supporting constructions of the form:
-# 	julia> foo(x) = x+1
-# 	julia> fooc = @cache foo::Int  # expects output to be `Int`
-macro cache(expr::Expr,
-            filename::String=generate_cache_filename(string(expr.args[1])),
-            max_size::Number=MAX_CACHE_SIZE)
-    # Parse
-	@assert expr.head == :(::)
-	@assert length(expr.args) == 2  # two arguments
-	_symb = expr.args[1]
-	_typesymbol = expr.args[2]
-	_type = eval(_typesymbol)
-	_name = String(_symb)
-
-    try
-        @assert _type isa Type
-	catch  # it may be a variable containing a type
-        @error "The right-hand argument of `::` is not a type."
-	end
-
-    @assert max_size > 0 "The maximum size has to be > 0 (objects or KiB)."
-    if max_size isa Int
-        _max_size = CountSize(max_size)
-    elseif max_size isa Real
-        _max_size = MemorySize(max_size*1024)
     else
-        @error "The maximum size has to be an Int or a Float64."
-    end
-
-    ex = quote
-        try
-            Cache($_symb, name=$_name, filename=$filename, output_type=$_type,
-                 max_size=$_max_size)
-        catch excep
-            @error "Could not create Cache. $excep"
+        #######################################
+        # julia> @cache function foo(x::Int)  #
+        #                   x+1               #-> foo becomes a Caching.Cache object
+        #               end                   #
+        #######################################
+        f_parsed = splitdef(expression)
+        f_name = f_parsed[:name]
+        f_output_type = get(f_parsed, :rtype, :Any)
+        random_name = Symbol(:f_, randstring(20))
+        new_definition = copy(f_parsed)
+        new_f_name = random_name
+        new_definition[:name] = new_f_name
+        ex = quote
+                $(MacroTools.combinedef(new_definition))  # reconstruct function def and run it
+                $f_name = Caching.Cache($random_name,
+                                        name=$(string(f_name)),
+                                        output_type=$f_output_type,
+                                        max_size=$_max_size)
         end
     end
     return esc(ex)

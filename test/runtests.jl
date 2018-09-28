@@ -1,17 +1,20 @@
 using Test
-using Random
 using Caching
 
+# Make file
+FILE, FILEid = mktemp()
+close(FILEid)
+_tmpdir = tempdir()
 
 # Test Cache, @cache
 @testset "Cache" begin
     # Function arguments
-    _a_float = rand()
-    _a_float_2 = rand()
-    _an_int = rand(Int)
+    _a_float = 0.1234
+    _a_float_2 = 0.5678
+    _an_int = 1234
 
     # Define functions
-    foo(x) = x
+    global foo(x) = x
     bar(x; y=1) = x + y
 
     # Test caching of simple functions
@@ -42,8 +45,8 @@ using Caching
     @test length(bar_c1.cache) == 2
 
 	# Test macro support
-    foo_m1 = @cache foo			# no type annotations
-	foo_m2 = @cache foo::Int	# standard type annotation
+    foo_m1 = @eval @cache foo $FILE  # no type annotations
+    foo_m2 = @eval @cache foo::Int $FILE  # standard type annotation
 	for _foo in (foo_m1, foo_m2)
     	@test typeof(_foo) <: AbstractCache
     	@test typeof(_foo) <: Cache
@@ -64,7 +67,7 @@ using Caching
 		end
 	end
 
-    dc = @cache foo "somefile.bin"
+    dc = @eval @cache foo $(joinpath(_tmpdir,"somefile.bin"))
     for i in 1:3 dc(i); end
     @persist! dc
     @empty! dc
@@ -78,13 +81,14 @@ using Caching
 end
 
 
+
 # syncache!, @syncache!
 @testset "syncache!, @syncache!" begin
     # Define functions
     foo(x) = x+1  # define function
     
     n1 = 5
-    fc = @cache foo "somefile.bin"  # make a cache object
+    fc = @eval @cache foo $FILE  # make a cache object
     [fc(i) for i in 1:n1]  # populate the memorycache
     @persist! fc  # write to disk the cache
     @empty! fc  # delete the memory cache
@@ -116,13 +120,15 @@ end
 end
 
 
+
 # empty!, @empty!
 @testset "empty!, @empty!" begin
     # Define functions
     foo(x) = x
     bar(x; y=1) = x + y
 
-    dc = @cache foo; dc(1)
+    dc =@eval @cache foo $FILE
+    dc(1)
     @test length(dc.cache) == 1
     @persist! dc "somefile.bin"
     @test length(dc.offsets) == 1
@@ -134,43 +140,44 @@ end
 end
 
 
+
 # persist!, @persist!
 @testset "persist!, @persist!" begin
     # Define functions
     foo(x) = x
-
-    dc = @cache foo "somefile.bin"
-    @test dc.filename == abspath("somefile.bin")
+    global dc
+    dc = @eval @cache foo $FILE
+    @test dc.filename == abspath(FILE)
     @test isempty(dc.offsets)
     N = 3
     for i in 1:N dc(i); end  # add N entries
 
     @persist! dc
     @test length(dc.offsets) == N
-    @test isfile("somefile.bin")
-    @test dc.filename == abspath("somefile.bin")
-    buf = open(read, "somefile.bin")
-    rm("somefile.bin")
-
-    @persist! dc "some_other_file.bin"
+    @test isfile(FILE)
+    @test dc.filename == abspath(FILE)
+    buf = open(read, FILE)
+    rm(FILE)
+    FILE2 = joinpath(_tmpdir, "some_other_file.bin")
+    @eval @persist! dc $FILE2
     @test length(dc.offsets) == N
-    @test isfile("some_other_file.bin")
-    @test dc.filename == abspath("some_other_file.bin")
-    buf2 = open(read, "some_other_file.bin")
-    rm("some_other_file.bin")
+    @test isfile(FILE2)
+    @test dc.filename == abspath(FILE2)
+    buf2 = open(read, FILE2)
+    rm(FILE2)
 
     @test buf == buf2  # sanity check
 end
 
 
+
 # Compression
 @testset "Compression" begin
-    files = ["somefile.bin",
-             "somefile.bin.gz",
-             "somefile.bin.gzip",
-             "somefile.bin.bz2",
-             "somefile.bin.bzip2",
-            ]
+    files = joinpath.(_tmpdir, ["somefile.bin",
+                                "somefile.bin.gz",
+                                "somefile.bin.gzip",
+                                "somefile.bin.bz2",
+                                "somefile.bin.bzip2"])
     for _file in files
         global foo(x) = x
         dc = @eval @cache foo $_file
@@ -189,11 +196,106 @@ end
 end
 
 
+
+# Size constraints
+@testset "Size constraints: number of objects" begin
+    file = joinpath(_tmpdir, "somefile.bin")
+    foo(x) = x
+    dc = @eval @cache foo $file 3  # 3 objects max
+    dc(1)
+    dc(2)
+    dc(3)
+    #--> Cache is full
+    dc(4)  #--> 1 is removed
+    @test !(1 in values(dc.cache)) &&
+        all(i in values(dc.cache) for i in 2:4)
+    @persist! dc
+    @empty! dc
+    for i in 5:6 dc(i) end
+    #--> 2,3,4 on disk, 5,6 in memory
+    @syncache! dc #--> brings 4 in memory and 5,6 on disk
+    @test all(i in values(dc.cache) for i in 4:6)
+    @test length(dc) == 3 # sanity check
+    @empty! dc  #--> nothing in memory
+    @syncache! dc "disk"  #--> load from disk max entries i.e. 3
+    @test all(i in values(dc.cache) for i in 4:6)
+    @empty! dc true  # remove everything
+end
+
+@testset "Size constraints: bytes of memory" begin
+    file = joinpath(_tmpdir, "somefile.bin")
+    foo(x) = x
+    dc = @eval @cache foo $file 1.0  # 1024 bytes=1.0 KiB max
+    for i in 1:128 dc(i) end
+    #--> Cache is full (128 x 8bytes/number=1024 bytes)
+    dc(129)  #--> 1 is removed
+    @test !(1 in values(dc.cache)) &&
+        all(i in values(dc.cache) for i in 2:129)
+    @persist! dc
+    @empty! dc  #--> 2,...,129 on disk, nothing in memory
+    for i in 130:130+126 dc(i) end  # write 127 entries
+    #--> 130,..,256 in memory, 2,...,129 on disk
+    @syncache! dc #--> brings 129 in memory and 130,...,256 on disk
+    @test all(i in values(dc.cache) for i in 129:130+126)
+    @test length(dc) == 128 # sanity check
+    @empty! dc  #--> nothing in memory
+    @syncache! dc "disk"  #--> load from disk max entries i.e. 128
+    @test all(i in values(dc.cache) for i in 129:130+126)
+    @empty! dc true  # remove everything
+end
+
+
+
+@testset "@cache <func. def.>" begin
+    @test !@isdefined foo
+    @cache foo=x->x
+    @test @isdefined foo
+    @test typeof(foo.cache) == Dict{UInt,Any}
+    @test foo(1) == 1
+
+    T = Int
+    @test !@isdefined bar
+    @eval @cache bar=x::$T->x
+    @test @isdefined bar
+    @eval @test typeof(bar.cache) == Dict{UInt,$T}
+    @test bar(1) == 1
+
+    @test !@isdefined baz
+    @eval @cache function baz(x)::$T x end
+    @test @isdefined baz
+    @eval @test typeof(baz.cache) == Dict{UInt,$T}
+    @test baz(1) == 1
+end
+
+
+
+# Hashing function
+struct custom_type{T}
+    x::T
+end
+@testset "Hashing function" begin
+    num = 1
+    str = "a string"
+    # test hashing function for various objects
+    for object in (Int(num), UInt(num), Float64(num),
+                   [num num], (num, num),
+                   str, [str, str], (str,str),
+                   custom_type(num), custom_type(str),
+                   [custom_type(num)], (custom_type(num),),
+                   custom_type(custom_type(num))
+                  )
+        object2 = deepcopy(object)
+        @test arghash(object) == arghash(object2)
+    end
+end
+
+
+
 # show methods
 @testset "Show methods" begin
     buf = IOBuffer()
     foo(x) = x
-    dc = @cache foo "somefile.bin"
+    dc = @eval @cache foo $FILE
     try
         show(buf, dc)
         @test true

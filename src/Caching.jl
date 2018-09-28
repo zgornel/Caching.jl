@@ -4,18 +4,26 @@
 #################################################################
 module Caching
 
-using Random
 using Serialization
+using DataStructures
 using TranscodingStreams
 using CodecZlib, CodecBzip2
+using MacroTools
+using Random
+using Base: summarysize
 
-import Base: show, empty!
+import Base: show, empty!, length
 import Core.Compiler: return_type
 
-abstract type AbstractCache end
+const MAX_CACHE_SIZE = typemax(Int)
 
 export AbstractCache,
        Cache,
+       AbstractSize,
+       CountSize,
+       MemorySize,
+       object_size,
+       max_cache_size,
        arghash,
        syncache!,
        persist!,
@@ -25,8 +33,8 @@ export AbstractCache,
        @persist!,
        @empty!
 
-    include("cache.jl")
-    include("hash.jl")
-    include("utils.jl")
-    include("compression.jl")
+include("cache.jl")
+include("utils.jl")
+include("file.jl")
+
 end  # module

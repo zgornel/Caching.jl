@@ -11,13 +11,14 @@ end
 
 
 
+# show methods
 show(io::IO, sz::CountSize) =
     sz.val == 1 ? print(io, "1 object") : print(io, "$(sz.val) objects")
 
 show(io::IO, sz::MemorySize) = print(io, "$(sz.val/1024) KiB")
 
 
-
+# Object size
 object_size(dd::Dict, ::Type{CountSize}) = length(dd)
 
 object_size(dd::Dict, ::Type{MemorySize}) =
@@ -83,27 +84,26 @@ object_size(cache::Cache{T, O, S}) where {T<:Function, O, S<:AbstractSize} =
 # Call method (caches only to memory, caching to disk has to be explicit)
 function (cache::Cache{T, O, S})(args...; kwargs...) where {T<:Function, O, S<:AbstractSize}
     # ~~ Caclculate hash ~~
-    _Hash_ = arghash(args...; kwargs...)
-    # ---
+    __hash__ = arghash(args...; kwargs...)
+    # ~~~
     _, decompressor = get_transcoders(cache.filename)
-    if _Hash_ in keys(cache.cache)
+    if __hash__ in keys(cache.cache)
         # Move hash from oldest to most recent
         # so that the next entry does not remove it;
         # return the cached value
-        if max_cache_size(cache) <= object_size(cache) && front(cache.history) == _Hash_
-            push!(cache.history, _Hash_)
+        if max_cache_size(cache) <= object_size(cache) && front(cache.history) == __hash__
+            push!(cache.history, __hash__)
             popfirst!(cache.history)
         end
-        return cache.cache[_Hash_]
-    elseif _Hash_ in keys(cache.offsets)
+        return cache.cache[__hash__]
+    elseif __hash__ in keys(cache.offsets)
         # Entries found only on disk do not update the history,
         # this is just a load operation; only an explicit synchonization
         # will load into memory
-        @warn "Memory cache miss, loading hash=0x$(string(_Hash_, base=16))..."
+        @warn "Memory cache miss, loading hash=0x$(string(__hash__, base=16))..."
         open(cache.filename, "r") do fid
-            startpos, endpos = cache.offsets[_Hash_]
-            datum = load_disk_cache_entry(fid, startpos, endpos,
-                                          decompressor=decompressor)
+            startpos, endpos = cache.offsets[__hash__]
+            datum = load_disk_cache_entry(fid, startpos, endpos, decompressor)
             if !(typeof(datum) <: O)
                 throw(AssertionError("Output type is not a subtype $O"))
             end
@@ -113,24 +113,25 @@ function (cache::Cache{T, O, S})(args...; kwargs...) where {T<:Function, O, S<:A
         # A hash miss: a new value must be cached. This requires a check
         # of the size of the returned object and dynamic removal of existing
         # entries if the maximum size is reached.
-        @debug "Full cache miss, adding hash=0x$(string(_Hash_, base=16))..."
+        @debug "Full cache miss, adding hash=0x$(string(__hash__, base=16))..."
         # Check that the output type matches
         if !(return_type(cache.func, typeof.(args)) <: O)
             throw(AssertionError("Output type is not a subtype $O"))
         end
         # Run function
         out::O = cache.func(args...; kwargs...)
-        # Cache
-        if object_size(out,S) > max_cache_size(cache)  # check for memory
+        # Check if cache is full when limit set in KiB
+        if S<:MemorySize && object_size(out,S) > max_cache_size(cache)  # check for memory
             @warn "Cannot cache result of size $(S(object_size(out,S))) " *
             "(maximum cache size is $(cache.max_size))."
-        else
-            while object_size(cache) + object_size(out, S) > max_cache_size(cache)
-                delete!(cache.cache, popfirst!(cache.history))
-            end
-            cache.cache[_Hash_] = out
-            push!(cache.history, _Hash_)
+            return out
         end
+        # Delete objects and cache
+        while object_size(cache) + object_size(out, S) > max_cache_size(cache)
+            delete!(cache.cache, popfirst!(cache.history))
+        end
+        cache.cache[__hash__] = out
+        push!(cache.history, __hash__)
         return out
     end
 end

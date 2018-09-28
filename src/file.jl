@@ -14,7 +14,7 @@ end
 
 
 # Function that retrieves one entry from a stream
-function load_disk_cache_entry(io::IO, pos_start::UInt, pos_end::UInt;
+function load_disk_cache_entry(io::IO, pos_start::UInt, pos_end::UInt,
                                decompressor=Noop)
     seek(io, pos_start)
     cbuf = read(io, pos_end-pos_start)
@@ -25,7 +25,7 @@ end
 
 
 # Function that stores one entry to a stream
-function store_disk_cache_entry(io::IO, pos_start::UInt, datum;
+function store_disk_cache_entry(io::IO, pos_start::UInt, datum,
                                 compressor=Noop)
     seek(io, pos_start)
     buf = IOBuffer()
@@ -46,10 +46,10 @@ function check_disk_cache(filename::String,
     open(filename, "r") do fid
         _, decompressor = get_transcoders(filename)
         try
-            O = deserialize(fid); @assert O == output_type
+            O = deserialize(fid);
+            @assert O == output_type
             for (_, (startpos, endpos)) in offsets
-                load_disk_cache_entry(fid, startpos, endpos,
-                                      decompressor=decompressor)
+                load_disk_cache_entry(fid, startpos, endpos, decompressor)
             end
             return true
         catch excep

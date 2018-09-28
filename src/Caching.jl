@@ -33,8 +33,7 @@ export AbstractCache,
        @empty!
 
 include("cache.jl")
-include("hash.jl")
 include("utils.jl")
-include("compression.jl")
+include("file.jl")
 
 end  # module

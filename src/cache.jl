@@ -32,22 +32,14 @@ object_size(object, ::Type{MemorySize}) = summarysize(object)
 # Cache struct
 abstract type AbstractCache end
 
-mutable struct Cache{T<:Function, I<:Unsigned, O, S<:AbstractSize} <: AbstractCache
-    name::String                        # name of the object
-    filename::String                    # file name
-    func::T
-    cache::Dict{I, O}
-    offsets::Dict{I, Tuple{Int, Int}}   # existing hash - to - file positions
-    history::Deque{I}                   # A deque of hashes
-    max_size::S
-end
-
-
-
-# Function that generates a name based on the name of the cached function
-function generate_cache_filename(fname::String)
-    _filename = "_" * string(hash(fname), base=16) * "_.bin"
-    return abspath(_filename)
+mutable struct Cache{T<:Function, O, S<:AbstractSize} <: AbstractCache
+    name::String                            # name of the object
+    filename::String                        # file name
+    func::T                                 # function being cached
+    cache::Dict{UInt, O}                    # cache dictionary
+    offsets::Dict{UInt, Tuple{UInt, UInt}}  # existing hash - to - file positions
+    history::Deque{UInt}                    # order in which the calls were executed (by hash)
+    max_size::S                             # maximum size of the cache
 end
 
 
@@ -56,24 +48,24 @@ end
 Cache(f::T where T<:Function;
       name::String = string(f),
 	  filename::String = generate_cache_filename(name),
-	  input_type::Type=UInt,
 	  output_type::Type=Any,
       max_size::S=CountSize(MAX_CACHE_SIZE)) where {F<:Function, S<:AbstractSize} =
     # The main constructor call (separating comment ;)
-    Cache(name, abspath(filename), f, Dict{input_type, output_type}(),
-          Dict{input_type, Tuple{Int, Int}}(), Deque{input_type}(),
+    Cache(name, abspath(filename), f, Dict{UInt, output_type}(),
+          Dict{UInt, Tuple{UInt, UInt}}(), Deque{UInt}(),
           max_size)
 
 
 
 # Show method
 show(io::IO, cache::Cache) = begin
-    _msz = length(cache.cache)
-    _dsz = length(cache.offsets)
-    _tsz = length(symdiff(keys(cache.cache), keys(cache.offsets))) +
-           length(intersect(keys(cache.cache), keys(cache.offsets)))
-    _en = ifelse(_tsz == 1, "entry", "entries")
-    print(io, "$(cache.name) (cache with $_tsz $_en, $_msz in memory $_dsz on disk)")
+    memory_size = length(cache.cache)
+    disk_size = length(cache.offsets)
+    total_size = length(symdiff(keys(cache.cache), keys(cache.offsets))) +
+        length(intersect(keys(cache.cache), keys(cache.offsets)))
+    _en = ifelse(total_size == 1, "entry", "entries")
+    print(io, "$(cache.name) (cache with $total_size $_en, ",
+              "$memory_size in memory $disk_size on disk)")
 end
 
 
@@ -83,33 +75,33 @@ length(cache::Cache) = length(cache.cache)
 
 max_cache_size(cache::Cache) = cache.max_size.val
 
-object_size(cache::Cache{T, I, O, S}) where {T<:Function, I, O, S <: AbstractSize} =
+object_size(cache::Cache{T, O, S}) where {T<:Function, O, S<:AbstractSize} =
     object_size(cache.cache, S)
 
 
 
 # Call method (caches only to memory, caching to disk has to be explicit)
-function (cache::Cache{T, I, O, S})(args...; kwargs...) where
-        {T<:Function, I<:Unsigned, O, S<:AbstractSize}
-    _hash = arghash(args...; kwargs...)
+function (cache::Cache{T, O, S})(args...; kwargs...) where {T<:Function, O, S<:AbstractSize}
+    # ~~ Caclculate hash ~~
+    _Hash_ = arghash(args...; kwargs...)
+    # ---
     _, decompressor = get_transcoders(cache.filename)
-    if _hash in keys(cache.cache)
+    if _Hash_ in keys(cache.cache)
         # Move hash from oldest to most recent
         # so that the next entry does not remove it;
         # return the cached value
-        if max_cache_size(cache) <= object_size(cache) && front(cache.history) == _hash
-            push!(cache.history, _hash)
+        if max_cache_size(cache) <= object_size(cache) && front(cache.history) == _Hash_
+            push!(cache.history, _Hash_)
             popfirst!(cache.history)
         end
-        return cache.cache[_hash]
-    elseif _hash in keys(cache.offsets)
+        return cache.cache[_Hash_]
+    elseif _Hash_ in keys(cache.offsets)
         # Entries found only on disk do not update the history,
         # this is just a load operation; only an explicit synchonization
         # will load into memory
-        @warn "Memory cache miss, loading hash=0x$(string(_hash, base=16))..."
+        @warn "Memory cache miss, loading hash=0x$(string(_Hash_, base=16))..."
         open(cache.filename, "r") do fid
-            startpos = cache.offsets[_hash][1]
-            endpos = cache.offsets[_hash][2]
+            startpos, endpos = cache.offsets[_Hash_]
             datum = load_disk_cache_entry(fid, startpos, endpos,
                                           decompressor=decompressor)
             if !(typeof(datum) <: O)
@@ -121,7 +113,7 @@ function (cache::Cache{T, I, O, S})(args...; kwargs...) where
         # A hash miss: a new value must be cached. This requires a check
         # of the size of the returned object and dynamic removal of existing
         # entries if the maximum size is reached.
-        @debug "Full cache miss, adding hash=0x$(string(_hash, base=16))..."
+        @debug "Full cache miss, adding hash=0x$(string(_Hash_, base=16))..."
         # Check that the output type matches
         if !(return_type(cache.func, typeof.(args)) <: O)
             throw(AssertionError("Output type is not a subtype $O"))
@@ -130,8 +122,8 @@ function (cache::Cache{T, I, O, S})(args...; kwargs...) where
         while object_size(cache) + object_size(out, S) > max_cache_size(cache)
             delete!(cache.cache, popfirst!(cache.history))
         end
-        cache.cache[_hash] = out
-        push!(cache.history, _hash)
+        cache.cache[_Hash_] = out
+        push!(cache.history, _Hash_)
         return out
     end
 end

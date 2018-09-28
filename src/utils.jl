@@ -1,23 +1,8 @@
-# Function that checks the consistency of the cache and `offset`
-# field value of the Cache object
-function _check_disk_cache(filename::String, offsets::D where D<:Dict,
-                           input_type::Type, output_type::Type)::Bool
-    open(filename, "r") do fid
-        _, decompressor = get_transcoders(filename)
-        try
-            I = deserialize(fid)
-            @assert I == input_type
-            O = deserialize(fid)
-            @assert O == output_type
-            for (_, (startpos, endpos)) in offsets
-                load_disk_cache_entry(fid, startpos, endpos,
-                                      decompressor=decompressor)
-            end
-            return true
-        catch excep
-            return false
-        end
-    end
+# Hash all input arguments and return a final hash
+function arghash(args...; kwargs...)
+    _h1 = hash(hash(arg)+hash(typeof(arg)) for arg in args)
+    _h2 = hash(hash(kwarg)+hash(typeof(kwarg)) for kwarg in kwargs)
+    return hash(_h1 + _h2)
 end
 
 
@@ -25,8 +10,8 @@ end
 # Function that dumps the whole Cache cache to disk overwriting any
 # existing cache; returns the cache with a new disk cache information
 # i.e. offsets member
-function persist!(cache::Cache{T, I, O,S}, filename::String=cache.filename) where
-        {T<:Function, I<:Unsigned, O, S<:AbstractSize}
+function persist!(cache::Cache{T, O, S}, filename::String=cache.filename) where
+        {T<:Function, O, S<:AbstractSize}
     # Initialize structures
     empty!(cache.offsets)
     _dir = join(split(filename, "/")[1:end-1], "/")
@@ -35,14 +20,13 @@ function persist!(cache::Cache{T, I, O,S}, filename::String=cache.filename) wher
     # Write header
     cache.filename = abspath(filename)
     open(cache.filename, "w") do fid
-        serialize(fid, I)
         serialize(fid, O)
         # Write data pairs (starting with the oldest)
-        for _hash in cache.history
-            startpos = position(fid)
-            endpos = store_disk_cache_entry(fid, startpos, cache.cache[_hash],
+        for _Hash_ in cache.history
+            startpos = uposition(fid)
+            endpos = store_disk_cache_entry(fid, startpos, cache.cache[_Hash_],
                                             compressor=compressor)
-            push!(cache.offsets, _hash=>(startpos, endpos))
+            push!(cache.offsets, _Hash_=>(startpos, endpos))
         end
     end
     return cache
@@ -82,16 +66,14 @@ end
 #   "both" - memory and disk concents are combined, memory values update disk
 #   "disk" - memory cache contents are updated with disk ones
 #   "memory" - disk cache contents are updated with memory ones
-function syncache!(cache::Cache{T, I, O, S}; with::String="both") where
-        {T<:Function, I<:Unsigned, O, S<:AbstractSize}
+function syncache!(cache::Cache{T, O, S}; with::String="both") where {T<:Function, O, S<:AbstractSize}
     # Check keyword argument values, correct unknown values
-    _default_with = "both"
+    DEFAULT_SYNC = "both"
     noff = length(cache.offsets)
-    !(with in ["disk", "memory", "both"]) && begin
-        @warn "Unrecognized value with=$with, defaulting to $_default_with."
-        with = _default_with
+    !(with in ("disk", "memory", "both")) && begin
+        @warn "Unrecognized value with=$with, defaulting to $DEFAULT_SYNC."
+        with = DEFAULT_SYNC
     end
-
     # Cache synchronization
     if !isfile(cache.filename)
         if with == "both" || with == "memory"
@@ -103,7 +85,7 @@ function syncache!(cache::Cache{T, I, O, S}; with::String="both") where
             empty!(cache)
         end
     else
-        cache_ok = _check_disk_cache(cache.filename, cache.offsets, I, O)
+        cache_ok = check_disk_cache(cache.filename, cache.offsets, O)
         if !cache_ok && with != "disk"
             @warn "Inconsistent cache file, overwriting $(cache.filename)..."
             persist!(cache)
@@ -128,14 +110,14 @@ function syncache!(cache::Cache{T, I, O, S}; with::String="both") where
                 # Load from disk as many entries as possible (starting with the most
                 # recently saved, as long as the maximum size is not reached
                 if with != "memory"
-                    for (_hash, (startpos, endpos)) in diskorder
+                    for (_Hash_, (startpos, endpos)) in diskorder
                         datum = load_disk_cache_entry(fid, startpos, endpos,
                                                       decompressor=decompressor)
                         # Check size and update cache and history, adding
                         # as the oldest entries those on disk
                         if object_size(cache) + object_size(datum, S) <= max_cache_size(cache)
-                            push!(cache.cache, _hash=>datum)
-                            pushfirst!(cache.history, _hash)
+                            push!(cache.cache, _Hash_=>datum)
+                            pushfirst!(cache.history, _Hash_)
                             load_cnt += 1
                         else
                             memory_full = true
@@ -149,12 +131,12 @@ function syncache!(cache::Cache{T, I, O, S}; with::String="both") where
                 # size restrictions do not matter in this case
                 if with != "disk"
                     seekend(fid)
-                    for _hash in memonly # `memonly` already sorted
-                        datum = cache.cache[_hash]
-                        startpos = position(fid)
+                    for _Hash_ in memonly # `memonly` already sorted
+                        datum = cache.cache[_Hash_]
+                        startpos = uposition(fid)
                         endpos = store_disk_cache_entry(fid, startpos, datum,
                                                         compressor=compressor)
-                        push!(cache.offsets, _hash=>(startpos, endpos))
+                        push!(cache.offsets, _Hash_=>(startpos, endpos))
                     end
                 end
             end

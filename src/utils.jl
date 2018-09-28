@@ -1,8 +1,14 @@
 # Hash all input arguments and return a final hash
 function arghash(args...; kwargs...)
-    _h1 = hash(hash(arg)+hash(typeof(arg)) for arg in args)
-    _h2 = hash(hash(kwarg)+hash(typeof(kwarg)) for kwarg in kwargs)
-    return hash(_h1 + _h2)
+    _Hash_ = UInt(0)
+    for arguments in (args, kwargs)
+        _temp_hash_ = UInt(0)
+        for _a in arguments
+            _temp_hash_ += hash(_a) + hash(typeof(_a))
+        end
+        _Hash_ += hash(_temp_hash_)
+    end
+    return hash(_Hash_)
 end
 
 

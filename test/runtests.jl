@@ -243,6 +243,27 @@ end
 end
 
 
+# Hashing function
+struct custom_type{T}
+    x::T
+end
+@testset "Hashing function" begin
+    num = 1
+    str = "a string"
+    # test hashing function for various objects
+    for object in (Int(num), UInt(num), Float64(num),
+                   [num num], (num, num),
+                   str, [str, str], (str,str),
+                   custom_type(num), custom_type(str),
+                   [custom_type(num)], (custom_type(num),),
+                   custom_type(custom_type(num))
+                  )
+        object2 = deepcopy(object)
+        @test arghash(object) == arghash(object2)
+    end
+end
+
+
 
 # show methods
 @testset "Show methods" begin

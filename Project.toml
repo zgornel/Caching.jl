@@ -1,7 +1,7 @@
 name = "Caching"
 uuid = "279f16dc-a520-11e8-3dd4-c109b0eed59e"
 authors = ["Corneliu Cofaru <cornel@oxoaresearch.com>"]
-version = "0.0.1"
+version = "0.1.0"
 
 [deps]
 CodecBzip2 = "523fee87-0ab8-5b00-afb7-3ecf72e48cfd"

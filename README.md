@@ -14,7 +14,23 @@ This package provides a simple programming interface to caching function outputs
 
 ## Documentation
 
-The basic structure is the `Cache` object that can be easily constructed employed using the `@cache` macro. It supports reading/writing cached entries from/to memory and to disk.
+The caching object is `::Cache` and it can be easily constructed using the `@cache` macro. There are several supported expressions that can be used to construct `Cache`s:
+```julia
+# Function definitions
+julia> using Caching
+       @cache function foo(x)  # or `@cache function foo(x)::Type` for type stability
+            # ...
+       end
+
+# 1-argument anonymous functions
+julia> @cache foo2 = x->x+1  # or `@cache foo2 = x::Int->x+1` for type-stability
+
+# Existing functions (Caching.Cache objects returned)
+julia> foo3(x) = x;
+       foo3_cache = @cache foo3 # or `@cache foo3::Int` for type-stability
+```
+
+The `Cache` object itself supports reading/writing cached entries from/to memory and to disk.
 ```julia
 julia> foo(x) = x+1
        dc = @cache foo "somefile.bin"
@@ -31,7 +47,7 @@ julia> dc.cache
 #   0x17aa5f390831e792 => 2
 
 julia> dc.offsets  # disk cache information (hash=>(start byte, end byte))
-# Dict{UInt64,Tuple{Int64,Int64}} with 0 entries
+# Dict{UInt64,Tuple{UInt64,UInt64}} with 0 entries
 
 julia> dc.filename  # file information
 # /absolute/path/to/somefile.bin"
@@ -49,8 +65,8 @@ julia> isfile(dc.filename)
 # true
 
 julia> dc.offsets  # file information
-# Dict{UInt64,Tuple{Int64,Int64}} with 1 entry:
-#   0x17aa5f390831e792 => (19, 28)
+# Dict{UInt64,Tuple{UInt64,UInt64}} with 1 entry:
+#   0x17aa5f390831e792 => ...
 ```
 
 The cache can be deleted using the `empty!` function or the `@empty!` macro:
@@ -121,8 +137,8 @@ julia> dc.cache  # view the cache
 #   ...
 
 julia> dc.offsets  # view the file offsets
-# Dict{UInt64,Tuple{Int64,Int64}} with 8 entries:
-#   0xaa9c225ce8a1bd59 => (19, 28)
+# Dict{UInt64,Tuple{UInt64,UInt64}} with 8 entries:
+#   0xaa9c225ce8a1bd59 => ...
 #   ...
 ```
 
@@ -173,14 +189,6 @@ julia> dc = @cache foo "somefile.bin" 1.0   # 1.0 --> 1 KiB = 1024 bytes max; us
 # foo (cache with 255 entries, 128 in memory 255 on disk)
 ```
 More usage examples can be found in the `test/runtests.jl` file.
-
-
-
-## Limitations and Caveats
-
-Some limitations of this package that will have to be taken into consideration are:
-- the `@cache` macro does not support entire function definitions i.e. `@cache foo(x)=x` or `@cache x->x+1` (TODO)
-- the cache access is not type-stable unless types are explicitly provided i.e. `@cache foo::MyType`
 
 
 

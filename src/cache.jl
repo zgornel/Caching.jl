@@ -118,12 +118,19 @@ function (cache::Cache{T, O, S})(args...; kwargs...) where {T<:Function, O, S<:A
         if !(return_type(cache.func, typeof.(args)) <: O)
             throw(AssertionError("Output type is not a subtype $O"))
         end
+        # Run function
         out::O = cache.func(args...; kwargs...)
-        while object_size(cache) + object_size(out, S) > max_cache_size(cache)
-            delete!(cache.cache, popfirst!(cache.history))
+        # Cache
+        if object_size(out,S) > max_cache_size(cache)  # check for memory
+            @warn "Cannot cache result of size $(S(object_size(out,S))) " *
+            "(maximum cache size is $(cache.max_size))."
+        else
+            while object_size(cache) + object_size(out, S) > max_cache_size(cache)
+                delete!(cache.cache, popfirst!(cache.history))
+            end
+            cache.cache[_Hash_] = out
+            push!(cache.history, _Hash_)
         end
-        cache.cache[_Hash_] = out
-        push!(cache.history, _Hash_)
         return out
     end
 end
@@ -191,6 +198,7 @@ macro cache(expression, filename::String=generate_cache_filename(), max_size::Nu
         ex = quote
             $f_name = Caching.Cache(eval($new_expression),
                                     name=$(string(f_name)),
+                                    filename=$filename,
                                     output_type=Core.Compiler.return_type($_func,($_t,)),
                                     max_size=$_max_size)
         end
@@ -212,6 +220,7 @@ macro cache(expression, filename::String=generate_cache_filename(), max_size::Nu
                 $(MacroTools.combinedef(new_definition))  # reconstruct function def and run it
                 $f_name = Caching.Cache($random_name,
                                         name=$(string(f_name)),
+                                        filename=$filename,
                                         output_type=$f_output_type,
                                         max_size=$_max_size)
         end

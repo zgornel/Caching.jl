@@ -138,12 +138,7 @@ end
 
 
 
-# Macros
-# TODO(Corneliu): Support julia> @cache foo(x) = begin ... end and other
-#   method and function definition forms
-# Macro supporting construnctions of the form:
-# 	julia> foo(x) = x+1
-# 	julia> fooc = @cache foo # now `fooc` is the cached version of `foo`
+# @cache macro
 macro cache(expression, filename::String=generate_cache_filename(), max_size::Number=MAX_CACHE_SIZE)
     # Check size, no need to check the filename
     @assert max_size > 0 "The maximum size has to be > 0 (objects or KiB)."

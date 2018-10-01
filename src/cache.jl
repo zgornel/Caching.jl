@@ -87,7 +87,7 @@ function (cache::Cache{T, O, S})(args...; kwargs...) where {T<:Function, O, S<:A
     __hash__ = arghash(args...; kwargs...)
     # ~~~
     _, decompressor = get_transcoders(cache.filename)
-    if __hash__ in keys(cache.cache)
+    if haskey(cache.cache, __hash__)
         # Move hash from oldest to most recent
         # so that the next entry does not remove it;
         # return the cached value
@@ -96,7 +96,7 @@ function (cache::Cache{T, O, S})(args...; kwargs...) where {T<:Function, O, S<:A
             popfirst!(cache.history)
         end
         return cache.cache[__hash__]
-    elseif __hash__ in keys(cache.offsets)
+    elseif haskey(cache.offsets, __hash__)
         # Entries found only on disk do not update the history,
         # this is just a load operation; only an explicit synchonization
         # will load into memory

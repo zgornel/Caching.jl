@@ -100,7 +100,7 @@ function (cache::Cache{T, O, S})(args...; kwargs...) where {T<:Function, O, S<:A
         # Entries found only on disk do not update the history,
         # this is just a load operation; only an explicit synchonization
         # will load into memory
-        @warn "Memory cache miss, loading hash=0x$(string(__hash__, base=16))..."
+        @debug "Memory cache miss, loading hash=0x$(string(__hash__, base=16))..."
         open(cache.filename, "r") do fid
             startpos, endpos = cache.offsets[__hash__]
             datum = load_disk_cache_entry(fid, startpos, endpos, decompressor)

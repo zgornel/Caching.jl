@@ -85,10 +85,10 @@ function syncache!(cache::Cache{T, O, S}; with::String="both") where
     if !isfile(cache.filename)
         if with == "both" || with == "memory"
             noff != 0 &&
-                @warn "Missing cache file, persisting $(cache.filename)..."
+                @debug "Missing cache file, persisting $(cache.filename)..."
             persist!(cache)
         else
-            @warn "Missing cache file, creating $(cache.filename)..."
+            @debug "Missing cache file, creating $(cache.filename)..."
             empty!(cache)
         end
     else

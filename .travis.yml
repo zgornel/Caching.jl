@@ -17,17 +17,19 @@ matrix:
   allow_failures:
   - julia: nightly
 
-## uncomment and modify the following lines to manually install system packages
-#addons:
-#  apt: # apt-get for linux
-#    packages:
-#    - gfortran
-#before_script: # homebrew for mac
-#  - if [ $TRAVIS_OS_NAME = osx ]; then brew install gcc; fi
+jobs:
+  include:
+    - stage: "Documentation"
+      julia: 1.0
+      os: linux
+      script:
+        - julia --project=docs/ -e 'using Pkg;
+                                    Pkg.develop(PackageSpec(path=pwd()));
+                                    Pkg.instantiate();
+                                    Pkg.build() '
+        - julia --project=docs/ docs/make.jl
+      after_success: skip
 
-## uncomment the following lines to override the default test script
-#script:
-#  - julia -e 'Pkg.clone(pwd()); Pkg.build("Caching"); Pkg.test("Caching"; coverage=true)'
 after_success:
   # push coverage results to Coveralls
   - julia -e '(VERSION >= v"0.7" && using Pkg); Pkg.add("Coverage"); cd(Pkg.dir("Caching")); using Coverage; Coveralls.submit(process_folder()); Codecov.submit(process_folder())'

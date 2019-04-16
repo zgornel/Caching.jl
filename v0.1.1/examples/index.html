@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Usage examples · Caching.jl</title><link href="https://cdnjs.cloudflare.com/ajax/libs/normalize/4.2.0/normalize.min.css" rel="stylesheet" type="text/css"/><link href="https://fonts.googleapis.com/css?family=Lato|Roboto+Mono" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.2.0/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link href="../assets/documenter.css" rel="stylesheet" type="text/css"/></head><body><nav class="toc"><h1>Caching.jl</h1><select id="version-selector" onChange="window.location.href=this.value" style="visibility: hidden"></select><form class="search" id="search-form" action="../search/"><input id="search-query" name="q" type="text" placeholder="Search docs"/></form><ul><li><a class="toctext" href="../">Introduction</a></li><li class="current"><a class="toctext" href>Usage examples</a><ul class="internal"><li><a class="toctext" href="#The-Cache-object-1">The <code>Cache</code> object</a></li><li><a class="toctext" href="#Memory-and-disk-memoization-1">Memory and disk memoization</a></li><li><a class="toctext" href="#Cache-misses-1">Cache misses</a></li><li><a class="toctext" href="#Memory-disk-synchronization-1">Memory-disk synchronization</a></li><li class="toplevel"><a class="toctext" href="#Maximum-sizes-1">Maximum sizes</a></li></ul></li><li><a class="toctext" href="../api/">API Reference</a></li></ul></nav><article id="docs"><header><nav><ul><li><a href>Usage examples</a></li></ul><a class="edit-page" href="https://github.com/zgornel/Caching.jl/blob/master/docs/src/examples.md"><span class="fa"></span> Edit on GitHub</a></nav><hr/><div id="topbar"><span>Usage examples</span><a class="fa fa-bars" href="#"></a></div></header><h1><a class="nav-anchor" id="Usage-examples-1" href="#Usage-examples-1">Usage examples</a></h1><p>The following examples show how <code>Caching</code> can be employed to cache function outputs. Most examples employ the macros as this is the most straightforward usage pattern.</p><h2><a class="nav-anchor" id="The-Cache-object-1" href="#The-Cache-object-1">The <code>Cache</code> object</a></h2><p>The caching object is named <code>Cache</code> and it can be easily constructed using the <code>@cache</code> macro. There are several supported expressions that can be used to construct <code>Cache</code>s:</p><pre><code class="language-julia-repl">julia&gt; using Caching, InteractiveUtils</code></pre><pre><code class="language-julia-repl">julia&gt; @cache function foo(x)
+           x+1
+       end
+foo (cache with 0 entries, 0 in memory 0 on disk)
+
+julia&gt; typeof(foo)
+Cache{typeof(Main.ex-index.f_UB2dVEfXI4ojehbam9At),Any,CountSize}
+
+julia&gt; @code_warntype foo(1)
+Body::ANY
+87 1 ─ %1 = (getfield)(args, 1)::Int64
+   │   %2 = invoke Caching.:(#call#4)($(QuoteNode(Base.Iterators.Pairs{Union{},Union{},Tuple{},NamedTuple{(),Tuple{}}}()))::Base.Iterators.Pairs{Union{},Union{},Tuple{},NamedTuple{(),Tuple{}}}, _1::Cache{typeof(Main.ex-index.f_UB2dVEfXI4ojehbam9At),Any,CountSize}, %1::Int64)::ANY
+   └──      return %2</code></pre><p>or, for type stability,</p><pre><code class="language-julia-repl">julia&gt; @cache function foo2(x)::Int
+           x+1
+       end
+foo2 (cache with 0 entries, 0 in memory 0 on disk)
+
+julia&gt; @code_warntype foo2(1)
+Body::Int64
+87 1 ─ %1 = (getfield)(args, 1)::Int64
+   │   %2 = invoke Caching.:(#call#4)($(QuoteNode(Base.Iterators.Pairs{Union{},Union{},Tuple{},NamedTuple{(),Tuple{}}}()))::Base.Iterators.Pairs{Union{},Union{},Tuple{},NamedTuple{(),Tuple{}}}, _1::Cache{typeof(Main.ex-index.f_AZa7RN4xUaVY5m3Vczsw),Int64,CountSize}, %1::Int64)::Int64
+   └──      return %2</code></pre><p>The approach works for anonymous functions as well:</p><pre><code class="language-julia-repl">julia&gt; @cache foo3 = x-&gt;x-1
+foo3 (cache with 0 entries, 0 in memory 0 on disk)</code></pre><p>or, for type stability,</p><pre><code class="language-julia-repl">julia&gt; @cache foo4 = x::Int-&gt;x-1
+foo4 (cache with 0 entries, 0 in memory 0 on disk)
+
+julia&gt; @code_warntype foo3(1)
+Body::ANY
+87 1 ─ %1 = (getfield)(args, 1)::Int64
+   │   %2 = invoke Caching.:(#call#4)($(QuoteNode(Base.Iterators.Pairs{Union{},Union{},Tuple{},NamedTuple{(),Tuple{}}}()))::Base.Iterators.Pairs{Union{},Union{},Tuple{},NamedTuple{(),Tuple{}}}, _1::Cache{getfield(Main.ex-index, Symbol(&quot;##1#2&quot;)),Any,CountSize}, %1::Int64)::ANY
+   └──      return %2
+
+julia&gt; @code_warntype foo4(1)
+Body::Int64
+87 1 ─ %1 = (getfield)(args, 1)::Int64
+   │   %2 = invoke Caching.:(#call#4)($(QuoteNode(Base.Iterators.Pairs{Union{},Union{},Tuple{},NamedTuple{(),Tuple{}}}()))::Base.Iterators.Pairs{Union{},Union{},Tuple{},NamedTuple{(),Tuple{}}}, _1::Cache{getfield(Main.ex-index, Symbol(&quot;##3#4&quot;)),Int64,CountSize}, %1::Int64)::Int64
+   └──      return %2</code></pre><h2><a class="nav-anchor" id="Memory-and-disk-memoization-1" href="#Memory-and-disk-memoization-1">Memory and disk memoization</a></h2><p>The <code>Cache</code> object itself supports reading/writing cached entries from/to memory and to disk.</p><div class="admonition note"><div class="admonition-title">Note</div><div class="admonition-text"><p>Re-using the cached function outputs from a file is not possible once the in-memory <code>Cache</code> object goes out of scope.</p></div></div><pre><code class="language-julia-repl">julia&gt; foo5(x) = x+1
+foo5 (generic function with 1 method)
+
+julia&gt; dc = @cache foo5 &quot;somefile.bin&quot;
+foo5 (cache with 0 entries, 0 in memory 0 on disk)
+
+julia&gt; dc(1);  # add one entry to cache
+
+julia&gt; dc.cache
+Dict{UInt64,Any} with 1 entry:
+  0xc658c21eb56da00c =&gt; 2
+
+julia&gt; dc.offsets  # disk cache information (hash=&gt;(start byte, end byte))
+Dict{UInt64,Tuple{UInt64,UInt64}} with 0 entries
+
+julia&gt; dc.filename  # file information
+&quot;/home/travis/build/zgornel/Caching.jl/docs/build/somefile.bin&quot;
+
+julia&gt; isfile(dc.filename)  # file does not exist
+false</code></pre><p>The cache can be written to disk using the <code>persist!</code> function or the <code>@persist!</code> macro:</p><pre><code class="language-julia-repl">julia&gt; @persist! dc  # writes cache to disk and updates offsets
+foo5 (cache with 1 entry, 1 in memory 1 on disk)
+
+julia&gt; isfile(dc.filename)
+true
+
+julia&gt; dc.offsets
+Dict{UInt64,Tuple{UInt64,UInt64}} with 1 entry:
+  0xc658c21eb56da00c =&gt; (0x0000000000000009, 0x0000000000000012)</code></pre><p>The cache can be deleted using the <code>empty!</code> function or the <code>@empty!</code> macro:</p><pre><code class="language-julia-repl">julia&gt; @empty! dc  # delete memory cache
+foo5 (cache with 1 entry, 0 in memory 1 on disk)
+
+julia&gt; @empty! dc true  # delete also the disk cache
+foo5 (cache with 0 entries, 0 in memory 0 on disk)
+
+julia&gt; isfile(&quot;somefile.bin&quot;)
+false</code></pre><p>If no file name is provided when creating a <code>Cache</code> object, a file name will be automatically generated:</p><pre><code class="language-julia-repl">julia&gt; dc = @cache foo5
+foo5 (cache with 0 entries, 0 in memory 0 on disk)
+
+julia&gt; dc.filename
+&quot;/home/travis/build/zgornel/Caching.jl/docs/build/_d5d23cd59d4dc0c1_.bin&quot;</code></pre><h2><a class="nav-anchor" id="Cache-misses-1" href="#Cache-misses-1">Cache misses</a></h2><p>In case of a cache memory miss, the cached data is retrieved from disk if available:</p><pre><code class="language-julia-repl">julia&gt; dc = @cache foo5::Int &quot;somefile.bin&quot;
+foo5 (cache with 0 entries, 0 in memory 0 on disk)
+
+julia&gt; for i in 1:3 dc(i); end              # add 3 entries
+
+julia&gt; @persist! dc
+foo5 (cache with 3 entries, 3 in memory 3 on disk)
+
+julia&gt; @assert isfile(&quot;somefile.bin&quot;)
+
+julia&gt; @empty! dc                           # empty memory cache
+foo5 (cache with 3 entries, 0 in memory 3 on disk)
+
+julia&gt; @assert isempty(dc.cache)
+
+julia&gt; for i in 4:6 dc(i); end              # add 3 new entries
+
+julia&gt; dc
+foo5 (cache with 6 entries, 3 in memory 3 on disk)
+
+julia&gt; dc(1)  # only on disk
+2
+
+julia&gt; dc(4)  # in memory
+5</code></pre><h2><a class="nav-anchor" id="Memory-disk-synchronization-1" href="#Memory-disk-synchronization-1">Memory-disk synchronization</a></h2><p>Synchronization between the memory and disk cache contents is done with the help of the <code>syncache!</code> function and <code>@syncache!</code> macro:</p><pre><code class="language-julia-repl">julia&gt; dc = @cache foo5 &quot;somefile.bin&quot;       # make a Cache object
+foo5 (cache with 0 entries, 0 in memory 0 on disk)
+
+julia&gt; for i in 1:5 dc(i); end              # populate the memory cache with 5 entries
+
+julia&gt; @persist! dc                         # write to disk the cache the 5 entries
+foo5 (cache with 5 entries, 5 in memory 5 on disk)
+
+julia&gt; @empty! dc                           # delete the memory cache
+foo5 (cache with 5 entries, 0 in memory 5 on disk)
+
+julia&gt; @syncache! dc &quot;disk&quot;                 # load cache from disk
+foo5 (cache with 5 entries, 5 in memory 5 on disk)
+
+julia&gt; @empty! dc  # empty memory cache
+foo5 (cache with 5 entries, 0 in memory 5 on disk)
+
+julia&gt; for i in 1:3  dc(-i); end            # populate the memory cache with 3 new entries
+
+julia&gt; @syncache! dc &quot;memory&quot;               # write memory cache to disk
+foo5 (cache with 8 entries, 3 in memory 8 on disk)
+
+julia&gt; @empty! dc
+foo5 (cache with 8 entries, 0 in memory 8 on disk)
+
+julia&gt; @syncache! dc &quot;disk&quot;                 # load cache from disk
+foo5 (cache with 8 entries, 8 in memory 8 on disk)
+
+julia&gt; dc.cache  # view the cache
+Dict{UInt64,Any} with 8 entries:
+  0x799e884475227837 =&gt; -2
+  0xd52bbe4a8597f1b3 =&gt; 3
+  0x5018512aae917177 =&gt; 0
+  0xffec6081d6fb60d3 =&gt; -1
+  0xb5839d4ba2003afe =&gt; 6
+  0x38cb87f939fa110a =&gt; 5
+  0x5d1b9c06da4af3a6 =&gt; 4
+  0xc658c21eb56da00c =&gt; 2
+
+julia&gt; dc.offsets  # view the file offsets
+Dict{UInt64,Tuple{UInt64,UInt64}} with 8 entries:
+  0x799e884475227837 =&gt; (0x000000000000004c, 0x0000000000000059)
+  0xd52bbe4a8597f1b3 =&gt; (0x0000000000000012, 0x000000000000001b)
+  0x5018512aae917177 =&gt; (0x0000000000000036, 0x000000000000003f)
+  0x5d1b9c06da4af3a6 =&gt; (0x000000000000001b, 0x0000000000000024)
+  0x38cb87f939fa110a =&gt; (0x0000000000000024, 0x000000000000002d)
+  0xb5839d4ba2003afe =&gt; (0x000000000000002d, 0x0000000000000036)
+  0xffec6081d6fb60d3 =&gt; (0x000000000000003f, 0x000000000000004c)
+  0xc658c21eb56da00c =&gt; (0x0000000000000009, 0x0000000000000012)</code></pre><p>Synchronization of disk and memory cache contents can also be performed in one go by passing <code>&quot;both&quot;</code> in the <code>@syncache!</code> macro call:</p><pre><code class="language-julia-repl">julia&gt; dc = @cache foo5;
+
+julia&gt; for i in 1:3 dc(i); end              # populate the memory cache with 3 entries
+
+julia&gt; @syncache! dc &quot;memory&quot;               # write to disk the 3 entries
+foo5 (cache with 3 entries, 3 in memory 3 on disk)
+
+julia&gt; @empty! dc                           # delete the in-memory cache
+foo5 (cache with 3 entries, 0 in memory 3 on disk)
+
+julia&gt; for i in 1:5 dc(-i); end             # populate the in-memory cache with 5 new entries
+
+julia&gt; @syncache! dc &quot;both&quot;                 # sync both memory and disk
+foo5 (cache with 8 entries, 8 in memory 8 on disk)
+
+julia&gt; dc.cache
+Dict{UInt64,Any} with 8 entries:
+  0x799e884475227837 =&gt; -2
+  0xd52bbe4a8597f1b3 =&gt; 3
+  0x5018512aae917177 =&gt; 0
+  0xffec6081d6fb60d3 =&gt; -1
+  0x5d1b9c06da4af3a6 =&gt; 4
+  0x47f53685287e6151 =&gt; -3
+  0xc658c21eb56da00c =&gt; 2
+  0x443dd1a6af6bff4c =&gt; -4</code></pre><h1><a class="nav-anchor" id="Maximum-sizes-1" href="#Maximum-sizes-1">Maximum sizes</a></h1><p><code>Cache</code> objects support maximum sizes in terms of either number of entries (i.e. function outputs) or the maximum memory size allowed:</p><pre><code class="language-julia-repl">julia&gt; foo6(x) = x
+foo6 (generic function with 1 method)
+
+julia&gt; dc = @cache foo6 &quot;somefile.bin&quot; 3     # 3 objects max; use Int for objects
+foo6 (cache with 0 entries, 0 in memory 0 on disk)
+
+julia&gt; for i in 1:3 dc(i) end               # cache is full
+
+julia&gt; dc(4)                                # 1 is removed (FIFO rule)
+4
+
+julia&gt; @assert !(1 in values(dc.cache)) &amp;&amp;
+           all(i in values(dc.cache) for i in 2:4)
+
+julia&gt; @persist! dc
+foo6 (cache with 3 entries, 3 in memory 3 on disk)
+
+julia&gt; @empty! dc                           # 2,3,4 on disk
+foo6 (cache with 3 entries, 0 in memory 3 on disk)
+
+julia&gt; for i in 5:6 dc(i) end               # 5 and 6 in memory
+
+julia&gt; @syncache! dc                        # brings 4 (most recent on disk) in memory and writes 5,6 on disk
+┌ Warning: Memory cache full, loaded 1 out of 3 entries.
+└ @ Caching ~/build/zgornel/Caching.jl/src/utils.jl:133
+foo6 (cache with 5 entries, 3 in memory 5 on disk)</code></pre><pre><code class="language-julia-repl">julia&gt; dc = @cache foo6 &quot;somefile.bin&quot; 1.0   # 1.0 --&gt; 1 KiB = 1024 bytes max; use Float64 for KiB
+foo6 (cache with 0 entries, 0 in memory 0 on disk)
+
+julia&gt; for i in 1:128 dc(i) end             # cache is full (128 x 8bytes/Int = 1024 bytes)
+
+julia&gt; dc(129)                              # 1 is removed
+129
+
+julia&gt; @assert !(1 in values(dc.cache)) &amp;&amp;
+           all(i in values(dc.cache) for i in 2:129)
+
+julia&gt; @persist! dc
+foo6 (cache with 128 entries, 128 in memory 128 on disk)
+
+julia&gt; @empty! dc                           # 2,...,129 on disk, nothing in memory
+foo6 (cache with 128 entries, 0 in memory 128 on disk)
+
+julia&gt; for i in 130:130+126 dc(i) end       # write 127 entries
+
+julia&gt; #--&gt; 130,..,256 in memory, 2,...,129 on disk
+       @syncache! dc                        # brings 129 in memory and 130,...,256 on disk
+┌ Warning: Memory cache full, loaded 1 out of 128 entries.
+└ @ Caching ~/build/zgornel/Caching.jl/src/utils.jl:133
+foo6 (cache with 255 entries, 128 in memory 255 on disk)</code></pre><p>More usage examples can be found in the <a href="https://github.com/zgornel/Caching.jl/blob/master/test/runtests.jl">test/runtests.jl</a> file.</p><footer><hr/><a class="previous" href="../"><span class="direction">Previous</span><span class="title">Introduction</span></a><a class="next" href="../api/"><span class="direction">Next</span><span class="title">API Reference</span></a></footer></article></body></html>

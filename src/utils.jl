@@ -12,12 +12,11 @@ function arghash(args...; kwargs...)
 end
 
 
-
 # Function that dumps the whole Cache cache to disk overwriting any
 # existing cache; returns the cache with a new disk cache information
 # i.e. offsets member
-function persist!(cache::Cache{T, O, S}, filename::String=cache.filename) where
-        {T<:Function, O, S<:AbstractSize}
+function persist!(cache::Cache{T,O,S}, filename::String=cache.filename
+                 ) where {T<:Function, O, S<:AbstractSize}
     # Initialize structures
     empty!(cache.offsets)
     cachedir = join(split(filename, "/")[1:end-1], "/")
@@ -39,7 +38,6 @@ function persist!(cache::Cache{T, O, S}, filename::String=cache.filename) where
 end
 
 
-
 macro persist!(symb::Symbol, filename::String...)
     if isempty(filename)
         return esc(:(persist!($symb)))
@@ -47,7 +45,6 @@ macro persist!(symb::Symbol, filename::String...)
         return esc(:(persist!($symb, $(filename[1]))))
     end
 end
-
 
 
 # Erases the memory and possibly the disk cache
@@ -62,7 +59,6 @@ function empty!(cache::Cache; empty_disk::Bool=false)
 end
 
 
-
 macro empty!(symb::Symbol, empty_disk::Bool=false)
     return esc(:(empty!($symb, empty_disk=$empty_disk)))
 end
@@ -72,8 +68,8 @@ end
 #   "both" - memory and disk concents are combined, memory values update disk
 #   "disk" - memory cache contents are updated with disk ones
 #   "memory" - disk cache contents are updated with memory ones
-function syncache!(cache::Cache{T, O, S}; with::String="both") where
-        {T<:Function, O, S<:AbstractSize}
+function syncache!(cache::Cache{T,O,S}; with::String="both"
+                  ) where {T<:Function, O, S<:AbstractSize}
     # Check keyword argument values, correct unknown values
     sync_default = "both"
     noff = length(cache.offsets)
@@ -149,7 +145,6 @@ function syncache!(cache::Cache{T, O, S}; with::String="both") where
     end
     return cache
 end
-
 
 
 macro syncache!(symb::Symbol, with::String="both")

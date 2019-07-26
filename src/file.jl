@@ -4,7 +4,6 @@ function uposition(stream)
 end
 
 
-
 # Function that generates a name based on the name of the cached function
 function generate_cache_filename()
     _filename = "_" * string(hash(rand()), base=16) * "_.bin"
@@ -12,9 +11,9 @@ function generate_cache_filename()
 end
 
 
-
 # Function that retrieves one entry from a stream
-function load_disk_cache_entry(io::IO, pos_start::UInt, pos_end::UInt,
+function load_disk_cache_entry(io::IO,
+                               pos_start::UInt, pos_end::UInt,
                                decompressor=Noop)
     seek(io, pos_start)
     cbuf = read(io, pos_end-pos_start)
@@ -25,7 +24,8 @@ end
 
 
 # Function that stores one entry to a stream
-function store_disk_cache_entry(io::IO, pos_start::UInt, datum,
+function store_disk_cache_entry(io::IO,
+                                pos_start::UInt, datum,
                                 compressor=Noop)
     seek(io, pos_start)
     buf = IOBuffer()
@@ -37,12 +37,12 @@ function store_disk_cache_entry(io::IO, pos_start::UInt, datum,
 end
 
 
-
 # Function that checks the consistency of the cache and `offset`
 # field value of the Cache object
 function check_disk_cache(filename::String,
-                          offsets::D where D<:Dict,
-                          output_type::Type)::Bool
+                          offsets::D,
+                          output_type::Type
+                         )::Bool where {D<:Dict}
     open(filename, "r") do fid
         _, decompressor = get_transcoders(filename)
         try
@@ -59,8 +59,7 @@ function check_disk_cache(filename::String,
 end
 
 
-
-function get_transcoders(filename::T="") where T<:AbstractString
+function get_transcoders(filename::T="") where {T<:AbstractString}
     ext = split(filename, ".")[end]
     if ext == "lz4"
         compressor = LZ4Compressor

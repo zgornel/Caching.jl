@@ -44,28 +44,28 @@ _tmpdir = tempdir()
     @test bar(_a_float; y=_a_float_2) == bar_c1(_a_float; y=_a_float_2)
     @test length(bar_c1.cache) == 2
 
-	# Test macro support
+    # Test macro support
     foo_m1 = @eval @cache foo $FILE  # no type annotations
     foo_m2 = @eval @cache foo::Int $FILE  # standard type annotation
-	for _foo in (foo_m1, foo_m2)
-    	@test typeof(_foo) <: AbstractCache
-    	@test typeof(_foo) <: Cache
+    for _foo in (foo_m1, foo_m2)
+        @test typeof(_foo) <: AbstractCache
+        @test typeof(_foo) <: Cache
         @test typeof(_foo.cache) <: Dict
         @test typeof(_foo.offsets) <: Dict
         @test typeof(_foo.filename) <: AbstractString
         @test typeof(_foo.name) <: AbstractString
         @test typeof(_foo.func) <: Function
         @test _foo.func == foo
-		@test _foo(_an_int) == foo(_an_int)	 # all should work with Int's
-		if !(_foo === foo_m1)
-		# `foo_m2` fails with arguments other than `Int`
-		    @test_throws AssertionError _foo(_a_float)
-	        @test _foo.cache isa Dict{UInt64, Int}
-		else
-			@test _foo(_a_float) == foo(_a_float)
-			@test _foo.cache isa Dict{UInt64, Any}
-		end
-	end
+        @test _foo(_an_int) == foo(_an_int)	 # all should work with Int's
+        if !(_foo === foo_m1)
+            # `foo_m2` fails with arguments other than `Int`
+            @test_throws AssertionError _foo(_a_float)
+            @test _foo.cache isa Dict{UInt64, Int}
+        else
+            @test _foo(_a_float) == foo(_a_float)
+            @test _foo.cache isa Dict{UInt64, Any}
+        end
+    end
 
     dc = @eval @cache foo $(joinpath(_tmpdir,"somefile.bin"))
     for i in 1:3 dc(i); end

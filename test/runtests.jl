@@ -184,7 +184,8 @@ end
                                 "somefile.bin.gz",
                                 "somefile.bin.gzip",
                                 "somefile.bin.bz2",
-                                "somefile.bin.bzip2"])
+                                "somefile.bin.bzip2",
+                                "somefile.bin.lz4"])
     for _file in files
         global foo(x) = x
         dc = @eval @cache foo $_file

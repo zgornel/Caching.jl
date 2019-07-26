@@ -29,7 +29,7 @@ module Caching
 using Serialization
 using DataStructures
 using TranscodingStreams
-using CodecZlib, CodecBzip2
+using CodecZlib, CodecBzip2, CodecLz4
 using MacroTools
 using Random
 using Base: summarysize

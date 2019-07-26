@@ -62,8 +62,8 @@ end
 function get_transcoders(filename::T="") where {T<:AbstractString}
     ext = split(filename, ".")[end]
     if ext == "lz4"
-        compressor = LZ4Compressor
-        decompressor = LZ4Decompressor
+        compressor = LZ4FrameCompressor
+        decompressor = LZ4FrameDecompressor
     elseif ext == "bz2" || ext == "bzip2"
         compressor = Bzip2Compressor
         decompressor = Bzip2Decompressor

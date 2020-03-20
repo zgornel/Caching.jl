@@ -78,6 +78,13 @@ _tmpdir = tempdir()
         @test dc(i) == foo(i) == i
     end
     @empty! dc true
+
+    # Test for signature args order
+    # (https://github.com/zgornel/Caching.jl/issues/11)
+    foo(x, y) = x
+    foo_c1 = Cache(foo)
+    @test foo_c1(_an_int, _an_int+1) == _an_int
+    @test foo_c1(_an_int+1, _an_int) == _an_int+1
 end
 
 

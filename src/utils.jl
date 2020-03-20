@@ -2,9 +2,9 @@
 function arghash(args...; kwargs...)
     __hash__ = UInt(0)
     for arguments in (args, kwargs)
-        tmp = UInt(0)
+        tmp = ""
         for arg in arguments
-            tmp += hash(arg) + hash(typeof(arg))
+            tmp *= string(hash(arg) + hash(typeof(arg)))
         end
         __hash__ += hash(tmp)
     end

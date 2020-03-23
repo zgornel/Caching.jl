@@ -1,6 +1,8 @@
 using Test
+using Logging
+global_logger(ConsoleLogger(stdout, Logging.Error))  # supress test warnings
+using Serialization
 using Caching
-
 # Make file
 FILE, FILEid = mktemp()
 close(FILEid)
@@ -88,7 +90,6 @@ _tmpdir = tempdir()
 end
 
 
-
 # syncache!, @syncache!
 @testset "syncache!, @syncache!" begin
     # Define functions
@@ -127,7 +128,6 @@ end
 end
 
 
-
 # empty!, @empty!
 @testset "empty!, @empty!" begin
     # Define functions
@@ -145,7 +145,6 @@ end
     @test isempty(dc.offsets)
     @test !isfile("somefile.bin")
 end
-
 
 
 # persist!, @persist!
@@ -177,7 +176,6 @@ end
 end
 
 
-
 # Compression
 @testset "Compression" begin
     files = joinpath.(_tmpdir, ["somefile.bin",
@@ -202,7 +200,6 @@ end
         @empty! dc true
     end
 end
-
 
 
 # Size constraints
@@ -253,7 +250,6 @@ end
 end
 
 
-
 @testset "@cache <func. def.>" begin
     @test !@isdefined foo
     @cache foo=x->x
@@ -276,6 +272,39 @@ end
 end
 
 
+# serialize, deserialize
+@testset "serialize, deserialize" begin
+    foo = x->x+1
+    # Function needs to be specified as kwarg
+    foo_c1 = @cache foo
+    serialize(FILE, foo_c1)
+    @test_throws ErrorException deserialize(FILE, Cache)
+
+    foo_c2 = @cache foo::Int
+    serialize(FILE, foo_c2)
+    @test_throws ErrorException deserialize(FILE, Cache)
+
+    serialize(FILE, foo_c2)
+    deser = deserialize(FILE, Cache; func=foo)
+    @test deser isa Cache
+    @test deser(123) == foo(123)
+
+    # Function code is captured and evalued
+    @cache bar=x->x+1
+    serialize(FILE, bar)
+    bar_d = deserialize(FILE, Cache)
+    @test bar_d isa Cache
+    @test bar_d(1234) == bar(1234)
+
+    @cache function baz(a,b)
+        a,b,1
+    end
+    serialize(FILE, baz)
+    baz_d = deserialize(FILE, Cache)
+    @test baz_d isa Cache
+    @test baz_d(1234, 5678) == baz(1234, 5678)
+end
+
 
 # Hashing function
 struct custom_type{T}
@@ -296,7 +325,6 @@ end
         @test arghash(object) == arghash(object2)
     end
 end
-
 
 
 # show methods

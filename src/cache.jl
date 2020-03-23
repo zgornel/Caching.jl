@@ -32,9 +32,10 @@ object_size(object, ::Type{MemorySize}) = summarysize(object)
 abstract type AbstractCache end
 
 mutable struct Cache{T<:Function, O, S<:AbstractSize} <: AbstractCache
+    func::T                                 # function being cached
     name::String                            # name of the object
     filename::String                        # file name
-    func::T                                 # function being cached
+    func_def::Union{Nothing, String}        # function code (if any)
     cache::Dict{UInt, O}                    # cache dictionary
     offsets::Dict{UInt, Tuple{UInt, UInt}}  # existing hash - to - file positions
     history::Deque{UInt}                    # order in which the calls were executed (by hash)
@@ -46,12 +47,18 @@ end
 function Cache(f::T;
                name::String = string(f),
                filename::String = generate_cache_filename(),
+               func_def = nothing,
                output_type::Type=Any,
                max_size::S=CountSize(MAX_CACHE_SIZE)
               ) where {T<:Function, S<:AbstractSize}
     # The main constructor call (separating comment ;)
-    return Cache(name, abspath(filename), f, Dict{UInt, output_type}(),
-                 Dict{UInt, Tuple{UInt, UInt}}(), Deque{UInt}(),
+    return Cache(f,
+                 name,
+                 abspath(filename),
+                 func_def,
+                 Dict{UInt, output_type}(),
+                 Dict{UInt, Tuple{UInt, UInt}}(),
+                 Deque{UInt}(),
                  max_size)
 end
 
@@ -154,7 +161,11 @@ macro cache(expression,
         #######################
         _name = String(expression)
         ex = quote
-                Cache($expression, name=$_name, filename=$filename, max_size=$_max_size)
+                Cache($expression;
+                      name=$_name,
+                      filename=$filename,
+                      func_def=nothing,
+                      max_size=$_max_size)
         end
     elseif expression isa Expr && expression.head == :(::) && length(expression.args) == 2
         ############################
@@ -166,8 +177,10 @@ macro cache(expression,
         _name = String(_symb)
         @assert _type isa Type "The right-hand argument of `::` is not a type."
         ex = quote
-                Cache($_symb, name=$_name,
+                Cache($_symb;
+                      name=$_name,
                       filename=$filename,
+                      func_def=nothing,
                       output_type=$_type,
                       max_size=$_max_size)
         end
@@ -186,12 +199,14 @@ macro cache(expression,
             @error "Only one input argument lambdas are supported."
         end
         new_expression = :(($arg::$input_type)->$body)
+        new_expression_str = string(new_expression)
         _func = eval(new_expression)
         _t = eval(input_type)
         ex = quote
-            $f_name = Caching.Cache(eval($new_expression),
+            $f_name = Caching.Cache(eval($new_expression);
                                     name=$(string(f_name)),
                                     filename=$filename,
+                                    func_def=$new_expression_str,
                                     output_type=Core.Compiler.return_type($_func,($_t,)),
                                     max_size=$_max_size)
         end
@@ -202,6 +217,7 @@ macro cache(expression,
         #                   x+1               #-> foo becomes a Caching.Cache object
         #               end                   #
         #######################################
+        expression_str = string(expression)
         f_parsed = splitdef(expression)
         f_name = f_parsed[:name]
         f_output_type = get(f_parsed, :rtype, :Any)
@@ -211,9 +227,10 @@ macro cache(expression,
         new_definition[:name] = new_f_name
         ex = quote
                 $(MacroTools.combinedef(new_definition))  # reconstruct function def and run it
-                $f_name = Caching.Cache($random_name,
+                $f_name = Caching.Cache($random_name;
                                         name=$(string(f_name)),
                                         filename=$filename,
+                                        func_def=$expression_str,
                                         output_type=$f_output_type,
                                         max_size=$_max_size)
         end

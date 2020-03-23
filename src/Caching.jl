@@ -36,6 +36,7 @@ using Base: summarysize
 
 import Base: show, empty!, length
 import Core.Compiler: return_type
+import Serialization: serialize, deserialize
 
 const MAX_CACHE_SIZE = typemax(Int)
 

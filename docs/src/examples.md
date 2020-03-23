@@ -5,7 +5,7 @@ The following examples show how `Caching` can be employed to cache function outp
 ## The `Cache` object
 The caching object is named `Cache` and it can be easily constructed using the `@cache` macro. There are several supported expressions that can be used to construct `Cache`s:
 ```@repl index
-using Caching, InteractiveUtils
+using Caching, InteractiveUtils, Serialization
 ```
 ```@repl index
 @cache function foo(x)
@@ -146,5 +146,41 @@ for i in 130:130+126 dc(i) end       # write 127 entries
 #--> 130,..,256 in memory, 2,...,129 on disk
 @syncache! dc                        # brings 129 in memory and 130,...,256 on disk
 ```
+
+# Serialization
+!!! compat "Caching 0.2.0"
+
+    This feature requires version 0.2.0
+
+It is possible to save and load `Cache` objects to and from disk. This does not refer to the disk cache associated with an object but rather the object itself.
+The straightforward approach is to generate a cache object through the `@cache` macro and define the function withing the scope of the call:
+```@repl index
+@cache foo = x->begin println("this is foo."); true; end
+serialize("foo.serialized.bin", foo)
+foo_d = deserialize("foo.serialized.bin", Cache)
+@assert foo_d(1)  # result not cached
+foo_d(1)  # result cached
+```
+One can check the that the code of the function is captured:
+```@repl index
+println(foo_d.func_def)
+```
+The approach works in a similar way for definitions of the form `@cache function bar(x) end`
+
+If the `Cache` object is created by directly specifying an existing function, the only way to recover full functionality is to manually specify the same function when deserializing:
+```@repl index
+bar(x) = x
+barc = @cache bar  # `bar` code is unknwon
+serialize("bar.serialized.bin", barc)
+bar_d = deserialize("bar.serialized.bin", Cache)  # fails, cannot recreate function `bar`
+bar_d = deserialize("bar.serialized.bin", Cache; func=bar)  # works, bar is known
+bar_d(1)
+```
+
+!!! warning
+
+    - Any function can be provided through the `func` keyword argument and this may result in undefined behavior; it is up to the user to provide the original cached function.
+
+    - This approach is independent of the disk cache associated with the `Cache` object and portability has again to be explicitly ensured i.e. if moving the serialized objects and disk caches across machines the path of the disk cache (`filename` property) may have to be manually changed.
 
 More usage examples can be found in the [test/runtests.jl](https://github.com/zgornel/Caching.jl/blob/master/test/runtests.jl) file.

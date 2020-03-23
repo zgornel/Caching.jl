@@ -9,7 +9,7 @@ push!(LOAD_PATH,"../src/")
 # Make documentation
 makedocs(
     modules = [Caching],
-    format = :html,
+    format = Documenter.HTML(),
     sitename = "Caching.jl",
     authors = "Corneliu Cofaru, 0x0α Research",
     clean = true,

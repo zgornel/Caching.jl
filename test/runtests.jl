@@ -303,6 +303,10 @@ end
     baz_d = deserialize(FILE, Cache)
     @test baz_d isa Cache
     @test baz_d(1234, 5678) == baz(1234, 5678)
+
+    # Serialize to bufferr
+    @test serialize(IOBuffer(), bar) === nothing
+    @test serialize(IOBuffer(), baz) === nothing
 end
 
 

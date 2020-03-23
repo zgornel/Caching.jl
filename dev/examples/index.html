@@ -5,17 +5,17 @@
 foo (cache with 0 entries, 0 in memory 0 on disk)
 
 julia&gt; typeof(foo)
-Cache{typeof(Main.ex-index.f_8PEPv3MJqDS6LK7fiP7k),Any,CountSize}
+Cache{typeof(Main.ex-index.f_hvIpRMhiy2ZVZ9BlHBza),Any,CountSize}
 
 julia&gt; @code_warntype foo(1)
 Variables
-  cache::Cache{typeof(Main.ex-index.f_8PEPv3MJqDS6LK7fiP7k),Any,CountSize}
+  cache::Cache{typeof(Main.ex-index.f_hvIpRMhiy2ZVZ9BlHBza),Any,CountSize}
   args::Tuple{Int64}
 
 Body::ANY
 1 ─ %1 = Core.NamedTuple()::Core.Compiler.Const(NamedTuple(), false)
 │   %2 = Base.pairs(%1)::Core.Compiler.Const(Base.Iterators.Pairs{Union{},Union{},Tuple{},NamedTuple{(),Tuple{}}}(), false)
-│   %3 = Core.tuple(%2, cache)::Core.Compiler.PartialStruct(Tuple{Base.Iterators.Pairs{Union{},Union{},Tuple{},NamedTuple{(),Tuple{}}},Cache{typeof(Main.ex-index.f_8PEPv3MJqDS6LK7fiP7k),Any,CountSize}}, Any[Core.Compiler.Const(Base.Iterators.Pairs{Union{},Union{},Tuple{},NamedTuple{(),Tuple{}}}(), false), Cache{typeof(Main.ex-index.f_8PEPv3MJqDS6LK7fiP7k),Any,CountSize}])
+│   %3 = Core.tuple(%2, cache)::Core.Compiler.PartialStruct(Tuple{Base.Iterators.Pairs{Union{},Union{},Tuple{},NamedTuple{(),Tuple{}}},Cache{typeof(Main.ex-index.f_hvIpRMhiy2ZVZ9BlHBza),Any,CountSize}}, Any[Core.Compiler.Const(Base.Iterators.Pairs{Union{},Union{},Tuple{},NamedTuple{(),Tuple{}}}(), false), Cache{typeof(Main.ex-index.f_hvIpRMhiy2ZVZ9BlHBza),Any,CountSize}])
 │   %4 = Core._apply(Caching.:(var&quot;#_#4&quot;), %3, args)::ANY
 └──      return %4</code></pre><p>or, for type stability,</p><pre><code class="language-julia-repl">julia&gt; @cache function foo2(x)::Int
            x+1
@@ -24,13 +24,13 @@ foo2 (cache with 0 entries, 0 in memory 0 on disk)
 
 julia&gt; @code_warntype foo2(1)
 Variables
-  cache::Cache{typeof(Main.ex-index.f_6EQ18it34ELrJ0TeiRN3),Int64,CountSize}
+  cache::Cache{typeof(Main.ex-index.f_HG0gLS2WdAaqgUARqAYw),Int64,CountSize}
   args::Tuple{Int64}
 
 Body::Int64
 1 ─ %1 = Core.NamedTuple()::Core.Compiler.Const(NamedTuple(), false)
 │   %2 = Base.pairs(%1)::Core.Compiler.Const(Base.Iterators.Pairs{Union{},Union{},Tuple{},NamedTuple{(),Tuple{}}}(), false)
-│   %3 = Core.tuple(%2, cache)::Core.Compiler.PartialStruct(Tuple{Base.Iterators.Pairs{Union{},Union{},Tuple{},NamedTuple{(),Tuple{}}},Cache{typeof(Main.ex-index.f_6EQ18it34ELrJ0TeiRN3),Int64,CountSize}}, Any[Core.Compiler.Const(Base.Iterators.Pairs{Union{},Union{},Tuple{},NamedTuple{(),Tuple{}}}(), false), Cache{typeof(Main.ex-index.f_6EQ18it34ELrJ0TeiRN3),Int64,CountSize}])
+│   %3 = Core.tuple(%2, cache)::Core.Compiler.PartialStruct(Tuple{Base.Iterators.Pairs{Union{},Union{},Tuple{},NamedTuple{(),Tuple{}}},Cache{typeof(Main.ex-index.f_HG0gLS2WdAaqgUARqAYw),Int64,CountSize}}, Any[Core.Compiler.Const(Base.Iterators.Pairs{Union{},Union{},Tuple{},NamedTuple{(),Tuple{}}}(), false), Cache{typeof(Main.ex-index.f_HG0gLS2WdAaqgUARqAYw),Int64,CountSize}])
 │   %4 = Core._apply(Caching.:(var&quot;#_#4&quot;), %3, args)::Int64
 └──      return %4</code></pre><p>The approach works for anonymous functions as well:</p><pre><code class="language-julia-repl">julia&gt; @cache foo3 = x-&gt;x-1
 foo3 (cache with 0 entries, 0 in memory 0 on disk)</code></pre><p>or, for type stability,</p><pre><code class="language-julia-repl">julia&gt; @cache foo4 = x::Int-&gt;x-1
@@ -96,7 +96,7 @@ false</code></pre><p>If no file name is provided when creating a <code>Cache</co
 foo5 (cache with 0 entries, 0 in memory 0 on disk)
 
 julia&gt; dc.filename
-&quot;/home/travis/build/zgornel/Caching.jl/docs/build/_72c83de1c992ff1f_.bin&quot;</code></pre><h2><a class="nav-anchor" id="Cache-misses-1" href="#Cache-misses-1">Cache misses</a></h2><p>In case of a cache memory miss, the cached data is retrieved from disk if available:</p><pre><code class="language-julia-repl">julia&gt; dc = @cache foo5::Int &quot;somefile.bin&quot;
+&quot;/home/travis/build/zgornel/Caching.jl/docs/build/_367f189099e18bc_.bin&quot;</code></pre><h2><a class="nav-anchor" id="Cache-misses-1" href="#Cache-misses-1">Cache misses</a></h2><p>In case of a cache memory miss, the cached data is retrieved from disk if available:</p><pre><code class="language-julia-repl">julia&gt; dc = @cache foo5::Int &quot;somefile.bin&quot;
 foo5 (cache with 0 entries, 0 in memory 0 on disk)
 
 julia&gt; for i in 1:3 dc(i); end              # add 3 entries

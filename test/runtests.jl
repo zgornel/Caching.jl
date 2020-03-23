@@ -1,6 +1,8 @@
 using Test
+using Logging
+global_logger(ConsoleLogger(stdout, Logging.Error))  # supress test warnings
+using Serialization
 using Caching
-
 # Make file
 FILE, FILEid = mktemp()
 close(FILEid)
@@ -44,28 +46,28 @@ _tmpdir = tempdir()
     @test bar(_a_float; y=_a_float_2) == bar_c1(_a_float; y=_a_float_2)
     @test length(bar_c1.cache) == 2
 
-	# Test macro support
+    # Test macro support
     foo_m1 = @eval @cache foo $FILE  # no type annotations
     foo_m2 = @eval @cache foo::Int $FILE  # standard type annotation
-	for _foo in (foo_m1, foo_m2)
-    	@test typeof(_foo) <: AbstractCache
-    	@test typeof(_foo) <: Cache
+    for _foo in (foo_m1, foo_m2)
+        @test typeof(_foo) <: AbstractCache
+        @test typeof(_foo) <: Cache
         @test typeof(_foo.cache) <: Dict
         @test typeof(_foo.offsets) <: Dict
         @test typeof(_foo.filename) <: AbstractString
         @test typeof(_foo.name) <: AbstractString
         @test typeof(_foo.func) <: Function
         @test _foo.func == foo
-		@test _foo(_an_int) == foo(_an_int)	 # all should work with Int's
-		if !(_foo === foo_m1)
-		# `foo_m2` fails with arguments other than `Int`
-		    @test_throws AssertionError _foo(_a_float)
-	        @test _foo.cache isa Dict{UInt64, Int}
-		else
-			@test _foo(_a_float) == foo(_a_float)
-			@test _foo.cache isa Dict{UInt64, Any}
-		end
-	end
+        @test _foo(_an_int) == foo(_an_int)	 # all should work with Int's
+        if !(_foo === foo_m1)
+            # `foo_m2` fails with arguments other than `Int`
+            @test_throws AssertionError _foo(_a_float)
+            @test _foo.cache isa Dict{UInt64, Int}
+        else
+            @test _foo(_a_float) == foo(_a_float)
+            @test _foo.cache isa Dict{UInt64, Any}
+        end
+    end
 
     dc = @eval @cache foo $(joinpath(_tmpdir,"somefile.bin"))
     for i in 1:3 dc(i); end
@@ -86,7 +88,6 @@ _tmpdir = tempdir()
     @test foo_c1(_an_int, _an_int+1) == _an_int
     @test foo_c1(_an_int+1, _an_int) == _an_int+1
 end
-
 
 
 # syncache!, @syncache!
@@ -127,7 +128,6 @@ end
 end
 
 
-
 # empty!, @empty!
 @testset "empty!, @empty!" begin
     # Define functions
@@ -145,7 +145,6 @@ end
     @test isempty(dc.offsets)
     @test !isfile("somefile.bin")
 end
-
 
 
 # persist!, @persist!
@@ -177,14 +176,14 @@ end
 end
 
 
-
 # Compression
 @testset "Compression" begin
     files = joinpath.(_tmpdir, ["somefile.bin",
                                 "somefile.bin.gz",
                                 "somefile.bin.gzip",
                                 "somefile.bin.bz2",
-                                "somefile.bin.bzip2"])
+                                "somefile.bin.bzip2",
+                                "somefile.bin.lz4"])
     for _file in files
         global foo(x) = x
         dc = @eval @cache foo $_file
@@ -201,7 +200,6 @@ end
         @empty! dc true
     end
 end
-
 
 
 # Size constraints
@@ -252,7 +250,6 @@ end
 end
 
 
-
 @testset "@cache <func. def.>" begin
     @test !@isdefined foo
     @cache foo=x->x
@@ -275,6 +272,43 @@ end
 end
 
 
+# serialize, deserialize
+@testset "serialize, deserialize" begin
+    foo = x->x+1
+    # Function needs to be specified as kwarg
+    foo_c1 = @cache foo
+    serialize(FILE, foo_c1)
+    @test_throws ErrorException deserialize(FILE, Cache)
+
+    foo_c2 = @cache foo::Int
+    serialize(FILE, foo_c2)
+    @test_throws ErrorException deserialize(FILE, Cache)
+
+    serialize(FILE, foo_c2)
+    deser = deserialize(FILE, Cache; func=foo)
+    @test deser isa Cache
+    @test deser(123) == foo(123)
+
+    # Function code is captured and evalued
+    @cache bar=x->x+1
+    serialize(FILE, bar)
+    bar_d = deserialize(FILE, Cache)
+    @test bar_d isa Cache
+    @test bar_d(1234) == bar(1234)
+
+    @cache function baz(a,b)
+        a,b,1
+    end
+    serialize(FILE, baz)
+    baz_d = deserialize(FILE, Cache)
+    @test baz_d isa Cache
+    @test baz_d(1234, 5678) == baz(1234, 5678)
+
+    # Serialize to bufferr
+    @test serialize(IOBuffer(), bar) === nothing
+    @test serialize(IOBuffer(), baz) === nothing
+end
+
 
 # Hashing function
 struct custom_type{T}
@@ -295,7 +329,6 @@ end
         @test arghash(object) == arghash(object2)
     end
 end
-
 
 
 # show methods

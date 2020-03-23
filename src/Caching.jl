@@ -29,13 +29,14 @@ module Caching
 using Serialization
 using DataStructures
 using TranscodingStreams
-using CodecZlib, CodecBzip2
+using CodecZlib, CodecBzip2, CodecLz4
 using MacroTools
 using Random
 using Base: summarysize
 
 import Base: show, empty!, length
 import Core.Compiler: return_type
+import Serialization: serialize, deserialize
 
 const MAX_CACHE_SIZE = typemax(Int)
 

@@ -161,11 +161,11 @@ macro cache(expression,
         #######################
         _name = String(expression)
         ex = quote
-                Cache($expression;
-                      name=$_name,
-                      filename=$filename,
-                      func_def=nothing,
-                      max_size=$_max_size)
+                Base.@__doc__ Cache($expression;
+                                    name=$_name,
+                                    filename=$filename,
+                                    func_def=nothing,
+                                    max_size=$_max_size)
         end
     elseif expression isa Expr && expression.head == :(::) && length(expression.args) == 2
         ############################
@@ -177,12 +177,12 @@ macro cache(expression,
         _name = String(_symb)
         @assert _type isa Type "The right-hand argument of `::` is not a type."
         ex = quote
-                Cache($_symb;
-                      name=$_name,
-                      filename=$filename,
-                      func_def=nothing,
-                      output_type=$_type,
-                      max_size=$_max_size)
+                Base.@__doc__ Cache($_symb;
+                                    name=$_name,
+                                    filename=$filename,
+                                    func_def=nothing,
+                                    output_type=$_type,
+                                    max_size=$_max_size)
         end
     elseif expression isa Expr && expression.head == :(=)
         #############################
@@ -203,12 +203,12 @@ macro cache(expression,
         _func = eval(new_expression)
         _t = eval(input_type)
         ex = quote
-            $f_name = Caching.Cache(eval($new_expression);
-                                    name=$(string(f_name)),
-                                    filename=$filename,
-                                    func_def=$new_expression_str,
-                                    output_type=Core.Compiler.return_type($_func,($_t,)),
-                                    max_size=$_max_size)
+            Base.@__doc__ $f_name = Caching.Cache(eval($new_expression);
+                                                  name=$(string(f_name)),
+                                                  filename=$filename,
+                                                  func_def=$new_expression_str,
+                                                  output_type=Core.Compiler.return_type($_func,($_t,)),
+                                                  max_size=$_max_size)
         end
 
     else
@@ -227,12 +227,12 @@ macro cache(expression,
         new_definition[:name] = new_f_name
         ex = quote
                 $(MacroTools.combinedef(new_definition))  # reconstruct function def and run it
-                $f_name = Caching.Cache($random_name;
-                                        name=$(string(f_name)),
-                                        filename=$filename,
-                                        func_def=$expression_str,
-                                        output_type=$f_output_type,
-                                        max_size=$_max_size)
+                Base.@__doc__ $f_name = Caching.Cache($random_name;
+                                                      name=$(string(f_name)),
+                                                      filename=$filename,
+                                                      func_def=$expression_str,
+                                                      output_type=$f_output_type,
+                                                      max_size=$_max_size)
         end
     end
     return esc(ex)

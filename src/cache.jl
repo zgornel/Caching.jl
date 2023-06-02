@@ -118,7 +118,7 @@ function (cache::Cache{T,O,S})(args...; kwargs...) where {T<:Function, O, S<:Abs
         # entries if the maximum size is reached.
         @debug "Full cache miss, adding hash=0x$(string(__hash__, base=16))..."
         # Check that the output type matches
-        if !(return_type(cache.func, typeof.(args)) <: O)
+        if !(return_type(cache.func, Tuple{typeof.(args)...}) <: O)
             throw(AssertionError("Output type is not a subtype $O"))
         end
         # Run function
@@ -207,7 +207,7 @@ macro cache(expression,
                                                   name=$(string(f_name)),
                                                   filename=$filename,
                                                   func_def=$new_expression_str,
-                                                  output_type=Core.Compiler.return_type($_func,($_t,)),
+                                                  output_type=Core.Compiler.return_type($_func, Tuple{$_t}),
                                                   max_size=$_max_size)
         end
 

@@ -94,7 +94,8 @@ function (cache::Cache{T,O,S})(args...; kwargs...) where {T<:Function, O, S<:Abs
         # Move hash from oldest to most recent
         # so that the next entry does not remove it;
         # return the cached value
-        if max_cache_size(cache) <= object_size(cache) && front(cache.history) == __hash__
+        
+        if max_cache_size(cache) <= object_size(cache) && first(cache.history) == __hash__
             push!(cache.history, __hash__)
             popfirst!(cache.history)
         end

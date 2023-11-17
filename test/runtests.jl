@@ -8,6 +8,7 @@ FILE, FILEid = mktemp()
 close(FILEid)
 _tmpdir = tempdir()
 
+
 # Test Cache, @cache
 @testset "Cache" begin
     # Function arguments
@@ -212,6 +213,9 @@ end
     dc(3)
     #--> Cache is full
     dc(4)  #--> 1 is removed
+
+    @test dc(3) == 3  # sanity check (3 is still in cache)
+
     @test !(1 in values(dc.cache)) &&
         all(i in values(dc.cache) for i in 2:4)
     @persist! dc

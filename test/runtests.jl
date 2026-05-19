@@ -18,7 +18,7 @@ _tmpdir = tempdir()
 
     # Define functions
     global foo(x) = x
-    bar(x; y=1) = x + y
+    bar(x; y = 1) = x + y
 
     # Test caching of simple functions
     foo_c1 = Cache(foo)
@@ -44,7 +44,7 @@ _tmpdir = tempdir()
     @test typeof(bar_c1.func) <: Function
     @test bar_c1.func == bar
     @test bar(_a_float) == bar_c1(_a_float)
-    @test bar(_a_float; y=_a_float_2) == bar_c1(_a_float; y=_a_float_2)
+    @test bar(_a_float; y = _a_float_2) == bar_c1(_a_float; y = _a_float_2)
     @test length(bar_c1.cache) == 2
 
     # Test macro support
@@ -59,7 +59,7 @@ _tmpdir = tempdir()
         @test typeof(_foo.name) <: AbstractString
         @test typeof(_foo.func) <: Function
         @test _foo.func == foo
-        @test _foo(_an_int) == foo(_an_int)	 # all should work with Int's
+        @test _foo(_an_int) == foo(_an_int)     # all should work with Int's
         if !(_foo === foo_m1)
             # `foo_m2` fails with arguments other than `Int`
             @test_throws AssertionError _foo(_a_float)
@@ -70,13 +70,17 @@ _tmpdir = tempdir()
         end
     end
 
-    dc = @eval @cache foo $(joinpath(_tmpdir,"somefile.bin"))
-    for i in 1:3 dc(i); end
+    dc = @eval @cache foo $(joinpath(_tmpdir, "somefile.bin"))
+    for i in 1:3
+        dc(i)
+    end
     @persist! dc
     @empty! dc
     @test length(dc.offsets) == 3
     @test isempty(dc.cache)
-    for i in 4:6 dc(i); end
+    for i in 4:6
+        dc(i)
+    end
     for i in 1:6
         @test dc(i) == foo(i) == i
     end
@@ -86,16 +90,16 @@ _tmpdir = tempdir()
     # (https://github.com/zgornel/Caching.jl/issues/11)
     foo(x, y) = x
     foo_c1 = Cache(foo)
-    @test foo_c1(_an_int, _an_int+1) == _an_int
-    @test foo_c1(_an_int+1, _an_int) == _an_int+1
+    @test foo_c1(_an_int, _an_int + 1) == _an_int
+    @test foo_c1(_an_int + 1, _an_int) == _an_int + 1
 end
 
 
 # syncache!, @syncache!
 @testset "syncache!, @syncache!" begin
     # Define functions
-    foo(x) = x+1  # define function
-    
+    foo(x) = x + 1  # define function
+
     n1 = 5
     fc = @eval @cache foo $FILE  # make a cache object
     [fc(i) for i in 1:n1]  # populate the memorycache
@@ -122,8 +126,8 @@ end
     @empty! fc
     [fc(-i) for i in 1:n1]  # populate the memory cache
     @syncache! fc "both"     # sync both memory and disk
-    @test length(fc.offsets) == 2*n1
-    @test length(fc.cache) == 2*n1
+    @test length(fc.offsets) == 2 * n1
+    @test length(fc.cache) == 2 * n1
     @empty! fc true
     @test !isfile(fc.filename)
 end
@@ -133,9 +137,9 @@ end
 @testset "empty!, @empty!" begin
     # Define functions
     foo(x) = x
-    bar(x; y=1) = x + y
+    bar(x; y = 1) = x + y
 
-    dc =@eval @cache foo $FILE
+    dc = @eval @cache foo $FILE
     dc(1)
     @test length(dc.cache) == 1
     @persist! dc "somefile.bin"
@@ -157,7 +161,9 @@ end
     @test dc.filename == abspath(FILE)
     @test isempty(dc.offsets)
     N = 3
-    for i in 1:N dc(i); end  # add N entries
+    for i in 1:N
+        dc(i)
+    end  # add N entries
 
     @persist! dc
     @test length(dc.offsets) == N
@@ -179,16 +185,20 @@ end
 
 # Compression
 @testset "Compression" begin
-    files = joinpath.(_tmpdir, ["somefile.bin",
-                                "somefile.bin.gz",
-                                "somefile.bin.gzip",
-                                "somefile.bin.bz2",
-                                "somefile.bin.bzip2",
-                                "somefile.bin.lz4"])
+    files = joinpath.(
+        _tmpdir, [
+            "somefile.bin",
+            "somefile.bin.gz",
+            "somefile.bin.gzip",
+            "somefile.bin.bz2",
+            "somefile.bin.bzip2",
+            "somefile.bin.lz4",
+        ]
+    )
     for _file in files
         global foo(x) = x
         dc = @eval @cache foo $_file
-        data = [1,2,3]
+        data = [1, 2, 3]
         dc(data)
         @persist! dc
         @empty! dc
@@ -220,7 +230,9 @@ end
         all(i in values(dc.cache) for i in 2:4)
     @persist! dc
     @empty! dc
-    for i in 5:6 dc(i) end
+    for i in 5:6
+        dc(i)
+    end
     #--> 2,3,4 on disk, 5,6 in memory
     @syncache! dc #--> brings 4 in memory and 5,6 on disk
     @test all(i in values(dc.cache) for i in 4:6)
@@ -235,50 +247,56 @@ end
     file = joinpath(_tmpdir, "somefile.bin")
     foo(x) = x
     dc = @eval @cache foo $file 1.0  # 1024 bytes=1.0 KiB max
-    for i in 1:128 dc(i) end
+    for i in 1:128
+        dc(i)
+    end
     #--> Cache is full (128 x 8bytes/number=1024 bytes)
     dc(129)  #--> 1 is removed
     @test !(1 in values(dc.cache)) &&
         all(i in values(dc.cache) for i in 2:129)
     @persist! dc
     @empty! dc  #--> 2,...,129 on disk, nothing in memory
-    for i in 130:130+126 dc(i) end  # write 127 entries
+    for i in 130:(130 + 126)
+        dc(i)
+    end  # write 127 entries
     #--> 130,..,256 in memory, 2,...,129 on disk
     @syncache! dc #--> brings 129 in memory and 130,...,256 on disk
-    @test all(i in values(dc.cache) for i in 129:130+126)
+    @test all(i in values(dc.cache) for i in 129:(130 + 126))
     @test length(dc) == 128 # sanity check
     @empty! dc  #--> nothing in memory
     @syncache! dc "disk"  #--> load from disk max entries i.e. 128
-    @test all(i in values(dc.cache) for i in 129:130+126)
+    @test all(i in values(dc.cache) for i in 129:(130 + 126))
     @empty! dc true  # remove everything
 end
 
 
 @testset "@cache <func. def.>" begin
     @test !@isdefined foo
-    @cache foo=x->x
+    @cache foo = x -> x
     @test @isdefined foo
-    @test typeof(foo.cache) == Dict{UInt,Any}
+    @test typeof(foo.cache) == Dict{UInt, Any}
     @test foo(1) == 1
 
     T = Int
     @test !@isdefined bar
-    @eval @cache bar=x::$T->x
+    @eval @cache bar = x::$T -> x
     @test @isdefined bar
-    @eval @test typeof(bar.cache) == Dict{UInt,$T}
+    @eval @test typeof(bar.cache) == Dict{UInt, $T}
     @test bar(1) == 1
 
     @test !@isdefined baz
-    @eval @cache function baz(x)::$T x end
+    @eval @cache function baz(x)::$T
+        x
+    end
     @test @isdefined baz
-    @eval @test typeof(baz.cache) == Dict{UInt,$T}
+    @eval @test typeof(baz.cache) == Dict{UInt, $T}
     @test baz(1) == 1
 end
 
 
 # serialize, deserialize
 @testset "serialize, deserialize" begin
-    foo = x->x+1
+    foo = x -> x + 1
     # Function needs to be specified as kwarg
     foo_c1 = @cache foo
     serialize(FILE, foo_c1)
@@ -289,19 +307,19 @@ end
     @test_throws ErrorException deserialize(FILE, Cache)
 
     serialize(FILE, foo_c2)
-    deser = deserialize(FILE, Cache; func=foo)
+    deser = deserialize(FILE, Cache; func = foo)
     @test deser isa Cache
     @test deser(123) == foo(123)
 
     # Function code is captured and evalued
-    @cache bar=x->x+1
+    @cache bar = x -> x + 1
     serialize(FILE, bar)
     bar_d = deserialize(FILE, Cache)
     @test bar_d isa Cache
     @test bar_d(1234) == bar(1234)
 
-    @cache function baz(a,b)
-        a,b,1
+    @cache function baz(a, b)
+        a, b, 1
     end
     serialize(FILE, baz)
     baz_d = deserialize(FILE, Cache)
@@ -322,13 +340,14 @@ end
     num = 1
     str = "a string"
     # test hashing function for various objects
-    for object in (Int(num), UInt(num), Float64(num),
-                   [num num], (num, num),
-                   str, [str, str], (str,str),
-                   custom_type(num), custom_type(str),
-                   [custom_type(num)], (custom_type(num),),
-                   custom_type(custom_type(num))
-                  )
+    for object in (
+            Int(num), UInt(num), Float64(num),
+            [num num], (num, num),
+            str, [str, str], (str, str),
+            custom_type(num), custom_type(str),
+            [custom_type(num)], (custom_type(num),),
+            custom_type(custom_type(num)),
+        )
         object2 = deepcopy(object)
         @test arghash(object) == arghash(object2)
     end

@@ -41,20 +41,20 @@ import Serialization: serialize, deserialize
 const MAX_CACHE_SIZE = typemax(Int)
 
 export AbstractCache,
-       Cache,
-       AbstractSize,
-       CountSize,
-       MemorySize,
-       object_size,
-       max_cache_size,
-       arghash,
-       syncache!,
-       persist!,
-       empty!,
-       @cache,
-       @syncache!,
-       @persist!,
-       @empty!
+    Cache,
+    AbstractSize,
+    CountSize,
+    MemorySize,
+    object_size,
+    max_cache_size,
+    arghash,
+    syncache!,
+    persist!,
+    empty!,
+    @cache,
+    @syncache!,
+    @persist!,
+    @empty!
 
 include("cache.jl")
 include("utils.jl")

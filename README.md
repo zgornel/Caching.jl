@@ -3,9 +3,9 @@
 Memory and disk memoizer written in Julia.
 
 [![License](http://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)](LICENSE.md) 
-[![Build Status](https://travis-ci.org/zgornel/Caching.jl.svg?branch=master)](https://travis-ci.org/zgornel/Caching.jl) 
-[![Coverage Status](https://coveralls.io/repos/github/zgornel/Caching.jl/badge.svg?branch=master)](https://coveralls.io/github/zgornel/Caching.jl?branch=master)
-[![](https://img.shields.io/badge/docs-stable-blue.svg)](https://zgornel.github.io/Caching.jl/stable)
+[![Tests](https://github.com/zgornel/Caching.jl/actions/workflows/test.yml/badge.svg?branch=master)](https://github.com/zgornel/Caching.jl/actions/workflows/test.yml?query=branch%3Amaster)
+[![codecov](https://codecov.io/gh/zgornel/Caching.jl/graph/badge.svg?token=B3wKQOFVZ3)](https://codecov.io/gh/zgornel/Caching.jl)
+[![code style: runic](https://img.shields.io/badge/code_style-%E1%9A%B1%E1%9A%A2%E1%9A%BE%E1%9B%81%E1%9A%B2-black)](https://github.com/fredrikekre/Runic.jl)
 [![](https://img.shields.io/badge/docs-dev-blue.svg)](https://zgornel.github.io/Caching.jl/dev)
 
 

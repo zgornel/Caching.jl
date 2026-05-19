@@ -1,7 +1,7 @@
 name = "Caching"
 uuid = "68ad905a-5087-500a-aae7-0fd6acda2eb1"
 authors = ["Corneliu Cofaru <cornel@oxoaresearch.com>"]
-version = "0.2.1"
+version = "0.2.2"
 
 [deps]
 CodecBzip2 = "523fee87-0ab8-5b00-afb7-3ecf72e48cfd"
@@ -14,13 +14,13 @@ Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 TranscodingStreams = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
 
 [compat]
-CodecBzip2 = "^0.7"
+CodecBzip2 = "^0.8"
 CodecLz4 = "^0.4"
 CodecZlib = "^0.7"
-DataStructures = "^0.18.10"
+DataStructures = "^0.19"
 MacroTools = "^0.5"
-TranscodingStreams = "^0.9.3"
-julia = "1.8"
+TranscodingStreams = "^0.11"
+julia = "1.10"
 
 [extras]
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"

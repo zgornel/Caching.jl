@@ -37,7 +37,7 @@ function store_disk_cache_entry(
     buf = IOBuffer()
     serialize(buf, datum)
     posbuf = uposition(buf)
-    cbuf = transcode(compressor, buf.data[1:posbuf])
+    cbuf = transcode(compressor, Vector(buf.data[1:posbuf]))
     write(io, cbuf)
     return uposition(io)
 end
